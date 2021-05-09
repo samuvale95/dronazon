@@ -1,12 +1,13 @@
 package project.sdp.dronazon;
 
+import java.awt.*;
 import java.util.Random;
 import java.util.UUID;
 
 public class RandomDelivery implements Delivery{
     private final int id;
-    private final int[] takePoint;
-    private final int[] deliveryPoint;
+    private final Point takePoint;
+    private final Point deliveryPoint;
 
     public RandomDelivery(int length, int height){
         this.id = setID();
@@ -14,9 +15,9 @@ public class RandomDelivery implements Delivery{
         this.takePoint = getRandomPoint(length, height);
     }
 
-    private static int[] getRandomPoint(int length, int height){
+    private static Point getRandomPoint(int length, int height){
         Random random = new Random();
-        return new int[]{random.nextInt(length), random.nextInt(height)};
+        return new Point(random.nextInt(length), random.nextInt(height));
     }
 
     private static int setID(){
@@ -34,12 +35,12 @@ public class RandomDelivery implements Delivery{
     }
 
     @Override
-    public int[] getTakePoint() {
+    public Point getTakePoint() {
         return this.takePoint;
     }
 
     @Override
-    public int[] getDeliveryPoint() {
+    public Point getDeliveryPoint() {
         return this.deliveryPoint;
     }
 }

@@ -1,7 +1,9 @@
 package project.sdp.dronazon;
 
+import java.awt.*;
+
 public interface Delivery {
     int getID();
-    int[] getTakePoint();
-    int [] getDeliveryPoint();
+    Point getTakePoint();
+    Point getDeliveryPoint();
 }

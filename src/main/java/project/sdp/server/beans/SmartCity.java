@@ -2,6 +2,7 @@ package project.sdp.server.beans;
 
 import javafx.util.Pair;
 
+import java.awt.*;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -10,7 +11,7 @@ import java.util.Random;
 
 public class SmartCity {
     private static SmartCity instance;
-    private final HashMap<Integer , Pair<Drone, int[]>> city;
+    private final HashMap<Integer , Pair<Drone, Point>> city;
     private final ArrayList<Statistic> statistics;
     private static int length = 10;
     private static int height = 10;
@@ -36,7 +37,7 @@ public class SmartCity {
 
     public synchronized void addDrone(Drone drone){
         Random random = new Random();
-        int[] position = new int[]{random.nextInt(length), random.nextInt(height)};
+        Point position = new Point(random.nextInt(length), random.nextInt(height));
 
         if(city.get(drone.getId()) != null)
             throw new IllegalArgumentException("A drone with same id is already present in the city, try to change id");
