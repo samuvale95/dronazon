@@ -39,5 +39,14 @@ public class Drone {
     public void setPort(int port) {
         this.port = port;
     }
+
+    @Override
+    public String toString() {
+        return "Drone{" +
+                "id=" + id +
+                ", ip='" + ip + '\'' +
+                ", port=" + port +
+                '}';
+    }
 }
 
