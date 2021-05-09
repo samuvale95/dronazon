@@ -27,20 +27,13 @@ public class ClientAmministratore {
         System.out.println(mainMenu);
         while (!(option = scanner.nextLine()).equals("quit")){
             Client client = Client.create();
-            WebResource webResource;
+            WebResource webResource = null;
             ClientResponse response;
             String from, to;
 
             switch (option){
                 case "1":
                     webResource = client.resource(BASE_URI + "/dronazon/drone/getAll");
-                    response = webResource.accept("application/json").get(ClientResponse.class);
-
-                    if(response.getStatus() != 200)
-                        throw new RuntimeException("Something wrong on your request");
-
-                    String drones = response.getEntity(String.class);
-                    System.out.println(drones);
                     break;
                 case "2":
                     System.out.println("Insert date from (dd-mm-yyyy): ");
@@ -49,14 +42,7 @@ public class ClientAmministratore {
                     to = scanner.nextLine();
 
                      webResource = client.resource(BASE_URI + "/city/statistics/from/"+from+"/to/"+to);
-                     response = webResource.accept("application/json").get(ClientResponse.class);
-
-                    if(response.getStatus() != 200)
-                        throw new RuntimeException("Something wrong on your request " + response.getStatus());
-
-                    String globalStatistic = response.getEntity(String.class);
-                    System.out.println(globalStatistic);
-                    break;
+                     break;
                 case "3":
                     System.out.println("Insert date from (dd-mm-yyyy): ");
                     from = scanner.nextLine();
@@ -64,13 +50,6 @@ public class ClientAmministratore {
                     to = scanner.nextLine();
 
                     webResource = client.resource(BASE_URI + "/city/statistics/delivery/from/"+from+"/to/"+to);
-                    response = webResource.accept("application/json").get(ClientResponse.class);
-
-                    if(response.getStatus() != 200)
-                        throw new RuntimeException("Something wrong on your request");
-
-                    String averageDelivery = response.getEntity(String.class);
-                    System.out.println(averageDelivery);
                     break;
                 case "4":
                     System.out.println("Insert date from (dd-mm-yyyy): ");
@@ -79,15 +58,16 @@ public class ClientAmministratore {
                     to = scanner.nextLine();
 
                     webResource = client.resource(BASE_URI + "/city/statistics/distance/from/"+from+"/to/"+to);
-                    response = webResource.accept("application/json").get(ClientResponse.class);
-
-                    if(response.getStatus() != 200)
-                        throw new RuntimeException("Something wrong on your request");
-
-                    String averageDistance = response.getEntity(String.class);
-                    System.out.println(averageDistance);
                     break;
             }
+
+            assert webResource != null;
+            response = webResource.accept("application/json").get(ClientResponse.class);
+            if(response.getStatus() != 200)
+                throw new RuntimeException("Something wrong on your request");
+
+            String drones = response.getEntity(String.class);
+            System.out.println(drones);
         }
     }
 
