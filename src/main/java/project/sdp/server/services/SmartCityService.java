@@ -23,6 +23,7 @@ package project.sdp.server.services;
 * Media dei chilometri percorsi dai droni --> get drone/all/statistics/distance/from/{date}/to/{date}
 * */
 
+import com.google.gson.Gson;
 import project.sdp.server.beans.Drone;
 import project.sdp.server.beans.SmartCity;
 import project.sdp.server.beans.Statistic;
@@ -42,8 +43,8 @@ public class SmartCityService {
     @Consumes({"application/json"})
     @Produces(MediaType.APPLICATION_JSON)
     public Response addDrone(Drone drone){
-        smartCity.addDrone(drone);
-        return Response.ok(smartCity.getAllDrones()).build();
+        Gson gson = new Gson();
+        return Response.ok(gson.toJson(smartCity.addDrone(drone))).build();
     }
 
     @DELETE
