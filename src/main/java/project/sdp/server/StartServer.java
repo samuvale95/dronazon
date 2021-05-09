@@ -1,4 +1,4 @@
-package project.sdp.server.services;
+package project.sdp.server;
 
 import com.sun.jersey.api.container.httpserver.HttpServerFactory;
 import com.sun.net.httpserver.HttpServer;
