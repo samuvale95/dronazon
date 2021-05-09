@@ -35,13 +35,15 @@ public class SmartCity {
         return instance;
     }
 
-    public synchronized void addDrone(Drone drone){
+    public synchronized project.sdp.server.beans.Pair addDrone(Drone drone){
         Random random = new Random();
         Point position = new Point(random.nextInt(length), random.nextInt(height));
 
         if(city.get(drone.getId()) != null)
             throw new IllegalArgumentException("A drone with same id is already present in the city, try to change id");
+
         city.put(drone.getId(), new Pair<>(drone, position));
+        return new project.sdp.server.beans.Pair(getAllDrones(), position);
     }
 
     public synchronized void removeDrone(int id) {
@@ -58,7 +60,6 @@ public class SmartCity {
     public synchronized ListDrone getAllDrones(){
         ListDrone drones = new ListDrone();
         city.forEach((key, value) -> drones.add(value.getKey()));
-        System.out.println(drones);
         return drones;
     }
 
