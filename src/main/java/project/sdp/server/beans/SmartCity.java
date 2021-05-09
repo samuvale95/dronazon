@@ -1,4 +1,4 @@
-package project.sdp.beans;
+package project.sdp.server.beans;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;

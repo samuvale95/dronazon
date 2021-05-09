@@ -1,4 +1,4 @@
-package project.sdp.beans;
+package project.sdp.server.beans;
 
 import javax.xml.bind.annotation.XmlRootElement;
 import java.sql.Timestamp;
