@@ -38,12 +38,9 @@ public class SmartCity {
         Random random = new Random();
         int[] position = new int[]{random.nextInt(length), random.nextInt(height)};
 
-        System.out.println(Arrays.toString(position));
-
         if(city.get(drone.getId()) != null)
             throw new IllegalArgumentException("A drone with same id is already present in the city, try to change id");
         city.put(drone.getId(), new Pair<>(drone, position));
-        System.out.println(city);
     }
 
     public synchronized void removeDrone(int id) {
@@ -57,11 +54,10 @@ public class SmartCity {
         this.statistics.add(statistic);
     }
 
-    public synchronized ArrayList<Drone> getAllDrones(){
-        ArrayList<Drone> drones = new ArrayList<>();
+    public synchronized ListDrone getAllDrones(){
+        ListDrone drones = new ListDrone();
         city.forEach((key, value) -> drones.add(value.getKey()));
-        System.out.println(city);
-        System.out.print(drones);
+        System.out.println(drones);
         return drones;
     }
 
