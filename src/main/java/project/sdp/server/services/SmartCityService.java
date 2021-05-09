@@ -35,7 +35,7 @@ import java.sql.Timestamp;
 
 @Path("dronazon")
 public class SmartCityService {
-    private final SmartCity smartCity = new SmartCity(10,10);
+    private final SmartCity smartCity = SmartCity.getInstance();
 
     @POST
     @Path("drone/add")

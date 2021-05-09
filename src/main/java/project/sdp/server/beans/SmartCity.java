@@ -9,21 +9,34 @@ import java.util.HashMap;
 import java.util.Random;
 
 public class SmartCity {
+    private static SmartCity instance;
     private final HashMap<Integer , Pair<Drone, int[]>> city;
     private final ArrayList<Statistic> statistics;
-    private final int length;
-    private final int height;
+    private static int length = 10;
+    private static int height = 10;
 
-    public SmartCity(int length, int height){
-        this.length = length;
-        this.height = height;
+    private SmartCity(){
         this.city = new HashMap<>();
         this.statistics = new ArrayList<>();
     }
 
+    public static void setLength(int l){
+        length = l;
+    }
+
+    public static void setHeight(int h){
+        height = h;
+    }
+
+    public synchronized static SmartCity getInstance(){
+        if(instance == null) instance = new SmartCity();
+
+        return instance;
+    }
+
     public synchronized void addDrone(Drone drone){
         Random random = new Random();
-        int[] position = new int[]{random.nextInt(this.length), random.nextInt(this.height)};
+        int[] position = new int[]{random.nextInt(length), random.nextInt(height)};
 
         System.out.println(Arrays.toString(position));
 
