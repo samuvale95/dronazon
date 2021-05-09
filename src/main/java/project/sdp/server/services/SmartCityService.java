@@ -34,7 +34,7 @@ import java.sql.Date;
 import java.sql.Timestamp;
 
 @Path("dronazon")
-public class SmartCityServices {
+public class SmartCityService {
     private final SmartCity smartCity = new SmartCity(10,10);
 
     @POST
