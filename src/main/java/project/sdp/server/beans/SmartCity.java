@@ -1,12 +1,15 @@
 package project.sdp.server.beans;
 
+import javafx.util.Pair;
+
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Random;
 
 public class SmartCity {
-    private final HashMap<Integer , Object[]> city;
+    private final HashMap<Integer , Pair<Drone, int[]>> city;
     private final ArrayList<Statistic> statistics;
     private final int length;
     private final int height;
@@ -22,9 +25,12 @@ public class SmartCity {
         Random random = new Random();
         int[] position = new int[]{random.nextInt(this.length), random.nextInt(this.height)};
 
+        System.out.println(Arrays.toString(position));
+
         if(city.get(drone.getId()) != null)
             throw new IllegalArgumentException("A drone with same id is already present in the city, try to change id");
-        city.put(drone.getId(), new Object[]{drone, position});
+        city.put(drone.getId(), new Pair<>(drone, position));
+        System.out.println(city);
     }
 
     public synchronized void removeDrone(int id) {
@@ -40,7 +46,9 @@ public class SmartCity {
 
     public synchronized ArrayList<Drone> getAllDrones(){
         ArrayList<Drone> drones = new ArrayList<>();
-        city.forEach((key, value) -> drones.add((Drone) value[0]));
+        city.forEach((key, value) -> drones.add(value.getKey()));
+        System.out.println(city);
+        System.out.print(drones);
         return drones;
     }
 
