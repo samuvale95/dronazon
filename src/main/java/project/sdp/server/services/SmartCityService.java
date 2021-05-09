@@ -40,9 +40,10 @@ public class SmartCityService {
     @POST
     @Path("drone/add")
     @Consumes({"application/json"})
+    @Produces(MediaType.APPLICATION_JSON)
     public Response addDrone(Drone drone){
         smartCity.addDrone(drone);
-        return Response.ok().build();
+        return Response.ok(smartCity.getAllDrones()).build();
     }
 
     @DELETE
