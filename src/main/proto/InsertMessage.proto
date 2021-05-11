@@ -1,0 +1,15 @@
+package com.example.grpc;
+
+message InsertMessage{
+  optional drone callerDrone = 1;
+
+  message drone {
+    optional int32 id = 1;
+    optional string ip = 2;
+    optional int32 port = 3;
+  }
+}
+
+service DroneService{
+  rpc insertIntoRing(InsertMessage) returns(InsertMessage);
+}
