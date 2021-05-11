@@ -42,8 +42,9 @@ public class SmartCity {
         if(city.get(drone.getId()) != null)
             throw new IllegalArgumentException("A drone with same id is already present in the city, try to change id");
 
+        ListDrone allDrones = getAllDrones();
         city.put(drone.getId(), new Pair<>(drone, position));
-        return new project.sdp.server.beans.Pair(getAllDrones(), position);
+        return new project.sdp.server.beans.Pair(allDrones, position);
     }
 
     public synchronized void removeDrone(int id) {
