@@ -15,7 +15,19 @@ message InsertRingResponse{
   optional Drone masterDrone = 2;
 }
 
+message Position{
+    optional int32 x = 1;
+    optional int32 y = 2;
+}
+
+message PositionRequest{
+  optional Drone drone = 1;
+  optional Position position = 2;
+}
+
+message PositionResponse{}
+
 service DroneService{
-  //TODO compattare i due metodi, quando mi aggiungo alla rete restituisco il nodo master.
   rpc insertIntoRing(InsertRingRequest) returns(InsertRingResponse);
+  rpc sendPosition(PositionRequest) returns(PositionResponse);
 }
