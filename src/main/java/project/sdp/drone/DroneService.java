@@ -19,16 +19,25 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
         Drone nextDrone = new Drone(nextDroneMessage.getId(), nextDroneMessage.getIp(), nextDroneMessage.getPort());
         droneProcess.setNextDrone(nextDrone);
 
-        System.out.println("My new next node is: ");
-        System.out.println(nextDrone);
-
         Drone drone = droneProcess.getDrone();
         Drone masterDrone = droneProcess.getMasterDrone();
-        System.out.println("MASTER NODE IS");
-        System.out.println(masterDrone);
         InsertMessage.Drone droneMessage = InsertMessage.Drone.newBuilder().setId(drone.getId()).setIp(drone.getIp()).setPort(drone.getPort()).build();
         InsertMessage.Drone droneMasterMessage = InsertMessage.Drone.newBuilder().setId(masterDrone.getId()).setIp(masterDrone.getIp()).setPort(masterDrone.getPort()).build();
+
         responseObserver.onNext(InsertMessage.InsertRingResponse.newBuilder().setNextDrone(droneMessage).setMasterDrone(droneMasterMessage).build());
         responseObserver.onCompleted();
+    }
+
+    @Override
+    public void sendPosition(InsertMessage.PositionRequest request, StreamObserver<InsertMessage.PositionResponse> responseObserver) {
+        InsertMessage.Drone drone = request.getDrone();
+        InsertMessage.Position position = request.getPosition();
+        responseObserver.onCompleted();
+
+        if(drone.getId() == droneProcess.getDrone().getId()) return;
+
+        droneProcess.addDronePosition(drone);
+        DroneServiceGrpc.DroneServiceBlockingStub stub = droneProcess.getStub(droneProcess.getNextDrone());
+        stub.sendPosition(request);
     }
 }
