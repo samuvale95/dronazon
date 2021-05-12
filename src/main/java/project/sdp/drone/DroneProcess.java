@@ -2,7 +2,7 @@ package project.sdp.drone;
 
 import com.example.grpc.DroneServiceGrpc;
 import com.example.grpc.DroneServiceGrpc.*;
-import com.example.grpc.InsertMessageOuterClass.*;
+import com.example.grpc.InsertMessage;
 import com.google.gson.Gson;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
@@ -42,7 +42,8 @@ public class DroneProcess {
     private int battery;
     private Point position;
     private ListDrone dronesList;
-    private Boolean isMaster;
+    private Boolean master;
+    private Drone masterDrone;
     private Drone nextDrone;
 
 
@@ -51,12 +52,22 @@ public class DroneProcess {
         this.port = port;
         this.URI_AdmServer = URI_AdmServer;
         this.battery = 100;
-        this.isMaster = false;
+        this.master = false;
         this.nextDrone = new Drone(id, "localhost", port);
     }
 
+    public Boolean isMaster(){ return this.master; }
+
     public void setNextDrone(Drone nextDrone) {
         this.nextDrone = nextDrone;
+    }
+
+    public void setMasterDrone(Drone masterDrone){}
+
+    public Drone getMasterDrone(){return this.masterDrone;}
+
+    public Drone getNextDrone() {
+        return this.nextDrone;
     }
 
     public Drone getDrone() {
@@ -83,8 +94,9 @@ public class DroneProcess {
 
     private void insertIntoRing(){
         if(dronesList.getDrones().size() == 0){
-        System.out.println("Im alone in a City");
-        return;
+            this.masterDrone = new Drone(this.id, "localhost", this.port);
+            this.master = true;
+            return;
         }
 
         Drone drone = dronesList.getDrones().get(0);
@@ -93,15 +105,18 @@ public class DroneProcess {
         final ManagedChannel managedChannel = ManagedChannelBuilder.forTarget(drone.getIp() +":"+drone.getPort()).usePlaintext().build();
         DroneServiceStub droneServiceStub = DroneServiceGrpc.newStub(managedChannel);
 
-        InsertMessage.drone callerDrone = InsertMessage.drone.newBuilder().setId(id).setIp("localhost").setPort(port).build();
-        InsertMessage insertMessage = InsertMessage.newBuilder().setCallerDrone(callerDrone).build();
+        InsertMessage.Drone callerDrone = InsertMessage.Drone.newBuilder().setId(id).setIp("localhost").setPort(port).build();
+        InsertMessage.InsertRingRequest insertMessage = InsertMessage.InsertRingRequest.newBuilder().setCallerDrone(callerDrone).build();
 
-        droneServiceStub.insertIntoRing(insertMessage, new StreamObserver<InsertMessage>() {
+        droneServiceStub.insertIntoRing(insertMessage, new StreamObserver<InsertMessage.InsertRingResponse>() {
             @Override
-            public void onNext(InsertMessage value) {
-                InsertMessage.drone drone = value.getCallerDrone();
+            public void onNext(InsertMessage.InsertRingResponse value) {
+                InsertMessage.Drone drone = value.getNextDrone();
+                InsertMessage.Drone droneMaster = value.getMasterDrone();
                 nextDrone = new Drone(drone.getId(),drone.getIp(), drone.getPort());
+                masterDrone = new Drone(droneMaster.getId(), droneMaster.getIp(), droneMaster.getPort());
                 System.out.println("My next drone is: " + nextDrone);
+                System.out.println("Drone master is: " + masterDrone);
             }
 
             @Override
@@ -120,7 +135,7 @@ public class DroneProcess {
         });
     }
 
-    public void start() throws IOException, InterruptedException {
+    public void start() throws IOException {
         registerToServer();
 
         Server server = ServerBuilder.forPort(port).addService(new DroneService(this)).build();
