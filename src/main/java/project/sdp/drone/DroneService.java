@@ -15,11 +15,13 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
     @Override
     public void insertIntoRing(com.example.grpc.InsertMessage.InsertRingRequest request, StreamObserver<com.example.grpc.InsertMessage.InsertRingResponse> responseObserver) {
+        Drone drone = droneProcess.getNextDrone();
+
         com.example.grpc.InsertMessage.Drone nextDroneMessage = request.getCallerDrone();
         Drone nextDrone = new Drone(nextDroneMessage.getId(), nextDroneMessage.getIp(), nextDroneMessage.getPort());
         droneProcess.setNextDrone(nextDrone);
 
-        Drone drone = droneProcess.getDrone();
+
         Drone masterDrone = droneProcess.getMasterDrone();
         InsertMessage.Drone droneMessage = InsertMessage.Drone.newBuilder().setId(drone.getId()).setIp(drone.getIp()).setPort(drone.getPort()).build();
         InsertMessage.Drone droneMasterMessage = InsertMessage.Drone.newBuilder().setId(masterDrone.getId()).setIp(masterDrone.getIp()).setPort(masterDrone.getPort()).build();
@@ -32,12 +34,18 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
     public void sendPosition(InsertMessage.PositionRequest request, StreamObserver<InsertMessage.PositionResponse> responseObserver) {
         InsertMessage.Drone drone = request.getDrone();
         InsertMessage.Position position = request.getPosition();
-        responseObserver.onCompleted();
 
-        if(drone.getId() == droneProcess.getDrone().getId()) return;
+        if(drone.getId() == droneProcess.getDrone().getId()){
+            responseObserver.onNext(InsertMessage.PositionResponse.newBuilder().build());
+            responseObserver.onCompleted();
+            return;
+        }
 
-        droneProcess.addDronePosition(drone);
-        DroneServiceGrpc.DroneServiceBlockingStub stub = droneProcess.getStub(droneProcess.getNextDrone());
+        droneProcess.addDronePosition(drone, position);
+        DroneServiceGrpc.DroneServiceBlockingStub stub = droneProcess.getBlockingStub(droneProcess.getNextDrone());
         stub.sendPosition(request);
+
+        responseObserver.onNext(InsertMessage.PositionResponse.newBuilder().build());
+        responseObserver.onCompleted();
     }
 }

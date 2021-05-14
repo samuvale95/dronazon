@@ -1,12 +1,14 @@
 package project.sdp.server.beans;
 
 import javax.xml.bind.annotation.XmlRootElement;
+import java.awt.*;
 
 @XmlRootElement
 public class Drone {
     private int id;
     private String ip;
     private int port;
+    private Point position;
 
     public Drone(int id, String ip, int port){
         this.id = id;
@@ -46,7 +48,16 @@ public class Drone {
                 "id=" + id +
                 ", ip='" + ip + '\'' +
                 ", port=" + port +
+                ", position=" + position +
                 '}';
+    }
+
+    public Point getPosition() {
+        return position;
+    }
+
+    public void setPosition(Point position) {
+        this.position = position;
     }
 }
 

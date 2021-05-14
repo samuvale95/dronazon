@@ -11,8 +11,6 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
-import io.grpc.stub.StreamObserver;
-import org.codehaus.jackson.map.ObjectMapper;
 import project.sdp.server.beans.Drone;
 import project.sdp.server.beans.ListDrone;
 import project.sdp.server.beans.Pair;
@@ -67,8 +65,20 @@ public class DroneProcess {
 
     public Drone getDrone() { return new Drone(id, "localhost", port); }
 
-    //TODO to implement
-    public void addDronePosition(InsertMessage.Drone drone) { }
+    public void addDronePosition(InsertMessage.Drone drone, InsertMessage.Position position) {
+        boolean exist = false;
+        for (Drone d : dronesList.getDrones()){
+            if(d.getId() == drone.getId()) {
+                d.setPosition(new Point(position.getX(), position.getY()));
+                exist = true;
+            }
+        }
+        if(!exist) {
+            Drone d = new Drone(drone.getId(), drone.getIp(), drone.getPort());
+            d.setPosition(new Point(position.getX(), position.getY()));
+            dronesList.add(d);
+        }
+    }
 
     private void registerToServer(){
         Client client = Client.create();
@@ -88,6 +98,16 @@ public class DroneProcess {
         this.position = pair.getPosition();
     }
 
+    public DroneServiceBlockingStub getBlockingStub(Drone drone) {
+        final ManagedChannel managedChannel = ManagedChannelBuilder.forTarget(drone.getIp() +":"+ drone.getPort()).usePlaintext().build();
+        return DroneServiceGrpc.newBlockingStub(managedChannel);
+    }
+
+    public DroneServiceStub getStub(Drone drone) {
+        final ManagedChannel managedChannel = ManagedChannelBuilder.forTarget(drone.getIp() +":"+ drone.getPort()).usePlaintext().build();
+        return DroneServiceGrpc.newStub(managedChannel);
+    }
+
     //TODO implementing method to send starting position to all node
     private void insertIntoRing(){
         if(dronesList.getDrones().size() == 0){
@@ -99,25 +119,24 @@ public class DroneProcess {
         Drone drone = dronesList.getDrones().get(0);
         System.out.println("Try to communicate with: ");
         System.out.println(drone);
-        DroneServiceBlockingStub droneServiceStub = getStub(drone);
+        DroneServiceBlockingStub blockingStub = getBlockingStub(drone);
 
         InsertMessage.Drone callerDrone = InsertMessage.Drone.newBuilder().setId(id).setIp("localhost").setPort(port).build();
         InsertMessage.InsertRingRequest insertMessage = InsertMessage.InsertRingRequest.newBuilder().setCallerDrone(callerDrone).build();
 
-        InsertMessage.InsertRingResponse insertRingResponse = droneServiceStub.insertIntoRing(insertMessage);
+        InsertMessage.InsertRingResponse insertRingResponse = blockingStub.insertIntoRing(insertMessage);
 
         InsertMessage.Drone droneNext = insertRingResponse.getNextDrone();
         InsertMessage.Drone droneMaster = insertRingResponse.getMasterDrone();
         nextDrone = new Drone(droneNext.getId(),droneNext.getIp(), droneNext.getPort());
         masterDrone = new Drone(droneMaster.getId(), droneMaster.getIp(), droneMaster.getPort());
+
+        blockingStub = getBlockingStub(nextDrone);
+        InsertMessage.Position positionMessage = InsertMessage.Position.newBuilder().setX((int) position.getX()).setY((int) position.getY()).build();
+        blockingStub.sendPosition(InsertMessage.PositionRequest.newBuilder().setDrone(callerDrone).setPosition(positionMessage).build());
     }
 
-    public DroneServiceBlockingStub getStub(Drone drone) {
-        final ManagedChannel managedChannel = ManagedChannelBuilder.forTarget(drone.getIp() +":"+ drone.getPort()).usePlaintext().build();
-        return DroneServiceGrpc.newBlockingStub(managedChannel);
-    }
-
-    public void start() throws IOException {
+    public void start() throws IOException, InterruptedException {
         registerToServer();
 
         //Start gRPC server
@@ -126,10 +145,14 @@ public class DroneProcess {
 
         insertIntoRing();
 
-        while (true){}
+        while (true){
+            System.out.println(nextDrone);
+            System.out.println(dronesList);
+            Thread.sleep(5000);
+        }
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         Scanner scanner = new Scanner(System.in);
 
         System.out.print("Insert a integer id of drone: ");
