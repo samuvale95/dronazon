@@ -11,12 +11,15 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
+import org.eclipse.paho.client.mqttv3.*;
+import project.sdp.dronazon.RandomDelivery;
 import project.sdp.server.beans.Drone;
 import project.sdp.server.beans.ListDrone;
 import project.sdp.server.beans.Pair;
 
 import java.awt.*;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Scanner;
 
 /*
@@ -35,6 +38,7 @@ import java.util.Scanner;
 *
 * */
 public class DroneProcess {
+    private static final String DELIVERY_TOPIC = "dronazon/smarcity/orders";
     private final int id;
     private final int port;
     private final String URI_AdmServer;
@@ -44,6 +48,7 @@ public class DroneProcess {
     private Boolean master;
     private Drone masterDrone;
     private Drone nextDrone;
+    private String broker;
 
 
     public DroneProcess(int id, int port, String URI_AdmServer){
@@ -108,11 +113,13 @@ public class DroneProcess {
         return DroneServiceGrpc.newStub(managedChannel);
     }
 
+    public void setBroker(String broker){ this.broker = broker; }
+
     //TODO implementing method to send starting position to all node
-    private void insertIntoRing(){
+    private void insertIntoRing() throws MqttException {
         if(dronesList.getDrones().size() == 0){
             this.masterDrone = new Drone(this.id, "localhost", this.port);
-            this.master = true;
+            becomeMaster();
             return;
         }
 
@@ -136,7 +143,35 @@ public class DroneProcess {
         blockingStub.sendPosition(InsertMessage.PositionRequest.newBuilder().setDrone(callerDrone).setPosition(positionMessage).build());
     }
 
-    public void start() throws IOException, InterruptedException {
+    private void becomeMaster() throws MqttException {
+        this.master = true;
+
+        MqttClient client = new MqttClient(broker, MqttClient.generateClientId());
+        MqttConnectOptions options = new MqttConnectOptions();
+        options.setCleanSession(true);
+        client.connect(options);
+
+        client.setCallback(new MqttCallback() {
+            @Override
+            public void connectionLost(Throwable cause) {}
+
+            @Override
+            public void messageArrived(String topic, MqttMessage message) {
+                Gson gson = new Gson();
+                RandomDelivery delivery = gson.fromJson(new String(message.getPayload()), RandomDelivery.class);
+                System.out.println("******* New delivery arrived ********");
+                System.out.println(delivery);
+                System.out.println("*************************************");
+            }
+
+            @Override
+            public void deliveryComplete(IMqttDeliveryToken token) {}
+        });
+
+        client.subscribe(DELIVERY_TOPIC);
+    }
+
+    public void start() throws IOException, InterruptedException, MqttException {
         registerToServer();
 
         //Start gRPC server
@@ -152,7 +187,7 @@ public class DroneProcess {
         }
     }
 
-    public static void main(String[] args) throws IOException, InterruptedException {
+    public static void main(String[] args) throws IOException, InterruptedException, MqttException {
         Scanner scanner = new Scanner(System.in);
 
         System.out.print("Insert a integer id of drone: ");
@@ -162,8 +197,7 @@ public class DroneProcess {
         scanner.close();
 
         DroneProcess drone = new DroneProcess(id, port, "http://localhost:1337");
+        drone.setBroker("tcp://localhost:1883");
         drone.start();
     }
-
-
 }

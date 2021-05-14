@@ -43,4 +43,13 @@ public class RandomDelivery implements Delivery{
     public Point getDeliveryPoint() {
         return this.deliveryPoint;
     }
+
+    @Override
+    public String toString() {
+        return "RandomDelivery{" +
+                "id=" + id +
+                ", takePoint=" + takePoint +
+                ", deliveryPoint=" + deliveryPoint +
+                '}';
+    }
 }

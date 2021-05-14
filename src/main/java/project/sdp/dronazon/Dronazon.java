@@ -33,7 +33,7 @@ public class Dronazon extends Thread{
 
         assert client != null;
         client.setCallback(new MqttCallback() {
-            //TODO need to implement this method with something sense
+            //TODO need to implement this method with something with sense
             @Override
             public void connectionLost(Throwable cause) {}
 
@@ -71,6 +71,6 @@ public class Dronazon extends Thread{
     }
 
     public static void main(String[] args) {
-        new Dronazon(10, 10, "pippo/", "tcp://localhost:1883", 2).start();
+        new Dronazon(10, 10, "dronazon/smarcity/orders", "tcp://localhost:1883", 2).start();
     }
 }
