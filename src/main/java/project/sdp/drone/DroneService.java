@@ -6,6 +6,8 @@ import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
 import project.sdp.server.beans.Drone;
 
+import java.awt.*;
+
 public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
     private final DroneProcess droneProcess;
@@ -54,14 +56,14 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
     @Override
     public void sendDelivery(InsertMessage.DeliveryRequest request, StreamObserver<InsertMessage.DeliveryResponse> responseObserver) {
-        InsertMessage.Position takePosition = request.getDelivery().getTakePoint();
-
         if(request.getDelivery().getDroneTarget().getId() == droneProcess.getDrone().getId()){
             responseObserver.onNext(InsertMessage.DeliveryResponse.newBuilder().build());
             responseObserver.onCompleted();
 
-            //TODO implement logic for delivery
-            System.out.println("****+ Making a delivery *******");
+            InsertMessage.Delivery newDelivery = request.getDelivery();
+            Point deliveryPosition = new Point(newDelivery.getDeliveryPoint().getX(), newDelivery.getDeliveryPoint().getY());
+            Point takePosition = new Point(newDelivery.getTakePoint().getX(), newDelivery.getTakePoint().getY());
+            droneProcess.makeDelivery(new Delivery(request.getDelivery().getId(), takePosition, deliveryPosition));
             return;
         }
 
@@ -80,6 +82,5 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 channel.shutdown();
             }
         });
-        //TODO probably fail point, understand if i terminate a method can cause problem.
     }
 }

@@ -4,16 +4,19 @@ import javax.xml.bind.annotation.XmlRootElement;
 import java.awt.*;
 
 @XmlRootElement
-public class Drone {
+public class Drone{
     private int id;
     private String ip;
     private int port;
     private Point position;
+    private Boolean committedToDelivery;
+    private int battery;
 
     public Drone(int id, String ip, int port){
         this.id = id;
         this.ip = ip;
         this.port = port;
+        this.committedToDelivery = false;
     }
 
     public Drone(){}
@@ -36,6 +39,22 @@ public class Drone {
 
     public void setIp(String ip) {
         this.ip = ip;
+    }
+
+    public Boolean getCommittedToDelivery() {
+        return committedToDelivery;
+    }
+
+    public void setCommittedToDelivery(Boolean committedToDelivery) {
+        this.committedToDelivery = committedToDelivery;
+    }
+
+    public void setBattery(int battery) {
+        this.battery = battery;
+    }
+
+    public int getBattery() {
+        return battery;
     }
 
     public void setPort(int port) {

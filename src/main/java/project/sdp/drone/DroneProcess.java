@@ -19,6 +19,7 @@ import project.sdp.server.beans.Pair;
 import project.sdp.drone.DeliveryQueue;
 import java.awt.*;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 /*
@@ -49,6 +50,7 @@ public class DroneProcess {
     private Drone nextDrone;
     private String broker;
     private final DeliveryQueue deliveryQueue;
+    private int deliveryCount = 0;
 
 
     public DroneProcess(int id, int port, String URI_AdmServer){
@@ -72,6 +74,8 @@ public class DroneProcess {
     public Drone getDrone() { return new Drone(id, "localhost", port); }
 
     public DeliveryQueue getDeliveryQueue() { return this.deliveryQueue; }
+
+    public ArrayList<Drone> getDronesList(){ return this.dronesList.getDrones(); }
 
     public void addDronePosition(InsertMessage.Drone drone, InsertMessage.Position position) {
         boolean exist = false;
@@ -175,6 +179,19 @@ public class DroneProcess {
         client.subscribe(DELIVERY_TOPIC);
     }
 
+    public void makeDelivery(Delivery delivery) {
+        System.out.println("****+ Making a delivery *******");
+        try {
+            Thread.sleep(5000);
+            deliveryCount++;
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        //TODO implements send statistic to master
+        System.out.println("SEND STATISTIC TO MASTER");
+        System.out.println("******** Delivery End *********");
+    }
+
     public void start() throws IOException, InterruptedException, MqttException {
         registerToServer();
 
@@ -185,8 +202,6 @@ public class DroneProcess {
         insertIntoRing();
 
         while (true){
-            System.out.println(nextDrone);
-            System.out.println(dronesList);
             Thread.sleep(5000);
         }
     }

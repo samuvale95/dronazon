@@ -6,13 +6,45 @@ import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
 import project.sdp.dronazon.Delivery;
 import project.sdp.server.beans.Drone;
+import java.awt.*;
+import java.util.ArrayList;
+import java.util.Objects;
+import java.util.Optional;
 
 public class DeliveryHandler extends Thread{
 
-    private DroneProcess droneProcess;
+    private final DroneProcess droneProcess;
 
     public DeliveryHandler(DroneProcess droneProcess){
         this.droneProcess = droneProcess;
+    }
+
+    private Drone getDeliveryDrone(Point takeDelivery) {
+        ArrayList<Drone> listDrone = droneProcess.getDronesList();
+        ArrayList<Drone> possibleDrones = new ArrayList<>();
+
+        listDrone.forEach(d -> {
+            if(!d.getCommittedToDelivery())
+                possibleDrones.add(d);
+        });
+
+        Optional<Drone> res = possibleDrones.stream().min((drone1, drone2) ->{
+            double distanceDrone1 = drone1.getPosition().distance(takeDelivery)/drone1.getBattery();
+            double distanceDrone2 = drone2.getPosition().distance(takeDelivery)/drone2.getBattery();
+
+            if(distanceDrone1 < distanceDrone2) return -1;
+            else if(distanceDrone1 > distanceDrone2) return 1;
+            else return Integer.compare(drone2.getId(), drone1.getId());
+        });
+
+        Drone result = res.orElse(null);
+        synchronized (Objects.requireNonNull(result)) {
+            result.setCommittedToDelivery(true);
+        }
+        System.out.println("********* LOG **********");
+        System.out.println(droneProcess.getDronesList());
+        System.out.println("******* END LOG **********");
+        return result;
     }
 
     @Override
@@ -25,14 +57,14 @@ public class DeliveryHandler extends Thread{
 
             assert delivery != null;
 
-            Drone nextDrone = droneProcess.getNextDrone();
-            assert nextDrone != null;
+            Drone deliveryDrone = getDeliveryDrone(delivery.getTakePoint());
+            assert deliveryDrone != null;
 
             InsertMessage.Drone droneTarget = InsertMessage.Drone
                     .newBuilder()
-                    .setId(nextDrone.getId())
-                    .setIp(nextDrone.getIp())
-                    .setPort(nextDrone.getPort())
+                    .setId(deliveryDrone.getId())
+                    .setIp(deliveryDrone.getIp())
+                    .setPort(deliveryDrone.getPort())
                     .build();
 
             InsertMessage.Position deliveryPoint = InsertMessage.Position

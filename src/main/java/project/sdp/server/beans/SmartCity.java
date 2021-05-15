@@ -5,13 +5,12 @@ import javafx.util.Pair;
 import java.awt.*;
 import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Random;
 
 public class SmartCity {
     private static SmartCity instance;
-    private final HashMap<Integer , Pair<Drone, Point>> city;
+    private final HashMap<Integer , Drone> city;
     private final ArrayList<Statistic> statistics;
     private static int length = 10;
     private static int height = 10;
@@ -43,7 +42,8 @@ public class SmartCity {
             throw new IllegalArgumentException("A drone with same id is already present in the city, try to change id");
 
         ListDrone allDrones = getAllDrones();
-        city.put(drone.getId(), new Pair<>(drone, position));
+        drone.setPosition(position);
+        city.put(drone.getId(), drone);
         return new project.sdp.server.beans.Pair(allDrones, position);
     }
 
@@ -60,7 +60,7 @@ public class SmartCity {
 
     public synchronized ListDrone getAllDrones(){
         ListDrone drones = new ListDrone();
-        city.forEach((key, value) -> drones.add(value.getKey()));
+        city.forEach((key, value) -> drones.add(value));
         return drones;
     }
 
@@ -70,14 +70,14 @@ public class SmartCity {
         return gStatistics;
     }
 
-    public ArrayList<Delivery> getDeliveryStatistics(Timestamp fromTs, Timestamp toTs) {
-        ArrayList<Delivery> gStatistics = new ArrayList<>();
+    public ArrayList<DeliveryStats> getDeliveryStatistics(Timestamp fromTs, Timestamp toTs) {
+        ArrayList<DeliveryStats> gStatistics = new ArrayList<>();
         statistics.forEach((value) -> { if(value.getTimestamp().after(fromTs) && value.getTimestamp().before(toTs)) gStatistics.add(value.getAverageDelivery());});
         return gStatistics;
     }
 
-    public ArrayList<Distance> getDistanceStatistics(Timestamp fromTs, Timestamp toTs) {
-        ArrayList<Distance> gStatistics = new ArrayList<>();
+    public ArrayList<DistanceStats> getDistanceStatistics(Timestamp fromTs, Timestamp toTs) {
+        ArrayList<DistanceStats> gStatistics = new ArrayList<>();
         statistics.forEach((value) -> { if(value.getTimestamp().after(fromTs) && value.getTimestamp().before(toTs)) gStatistics.add(value.getAverageDistance());});
         return gStatistics;
     }

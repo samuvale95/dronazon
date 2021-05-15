@@ -5,15 +5,15 @@ import java.sql.Timestamp;
 
 @XmlRootElement
 public class Statistic {
-    private Delivery avgDelivery;
-    private Distance avgDistance;
+    private DeliveryStats avgDelivery;
+    private DistanceStats avgDistance;
     private int averagePollution;
     private int averageBattery;
     private Timestamp timestamp;
 
     public Statistic(){}
 
-    public Statistic(Delivery averageDelivery, Distance averageDistance, int averagePollution, int averageBattery, Timestamp timestamp) {
+    public Statistic(DeliveryStats averageDelivery, DistanceStats averageDistance, int averagePollution, int averageBattery, Timestamp timestamp) {
         this.avgDelivery = averageDelivery;
         this.avgDistance = averageDistance;
         this.averagePollution = averagePollution;
@@ -21,19 +21,19 @@ public class Statistic {
         this.timestamp = timestamp;
     }
 
-    public Delivery getAverageDelivery() {
+    public DeliveryStats getAverageDelivery() {
         return avgDelivery;
     }
 
-    public void setAverageDelivery(Delivery averageDelivery) {
+    public void setAverageDelivery(DeliveryStats averageDelivery) {
         this.avgDelivery = averageDelivery;
     }
 
-    public Distance getAverageDistance() {
+    public DistanceStats getAverageDistance() {
         return avgDistance;
     }
 
-    public void setAverageDistance(Distance averageDistance) {
+    public void setAverageDistance(DistanceStats averageDistance) {
         this.avgDistance = averageDistance;
     }
 
