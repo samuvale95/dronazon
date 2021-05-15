@@ -27,7 +27,21 @@ message PositionRequest{
 
 message PositionResponse{}
 
+message Delivery{
+  optional int32 id = 1;
+  optional Drone droneTarget = 2;
+  optional Position takePoint = 3;
+  optional Position deliveryPoint = 4;
+}
+
+message DeliveryRequest{
+  optional Delivery delivery = 1;
+}
+
+message DeliveryResponse{}
+
 service DroneService{
   rpc insertIntoRing(InsertRingRequest) returns(InsertRingResponse);
   rpc sendPosition(PositionRequest) returns(PositionResponse);
+  rpc sendDelivery(DeliveryRequest) returns(DeliveryResponse);
 }

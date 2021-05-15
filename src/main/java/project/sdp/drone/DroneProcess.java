@@ -16,10 +16,9 @@ import project.sdp.dronazon.RandomDelivery;
 import project.sdp.server.beans.Drone;
 import project.sdp.server.beans.ListDrone;
 import project.sdp.server.beans.Pair;
-
+import project.sdp.drone.DeliveryQueue;
 import java.awt.*;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Scanner;
 
 /*
@@ -49,6 +48,7 @@ public class DroneProcess {
     private Drone masterDrone;
     private Drone nextDrone;
     private String broker;
+    private final DeliveryQueue deliveryQueue;
 
 
     public DroneProcess(int id, int port, String URI_AdmServer){
@@ -58,6 +58,7 @@ public class DroneProcess {
         this.battery = 100;
         this.master = false;
         this.nextDrone = new Drone(id, "localhost", port);
+        this.deliveryQueue = new DeliveryQueue();
     }
 
     public Boolean isMaster(){ return this.master; }
@@ -69,6 +70,8 @@ public class DroneProcess {
     public Drone getNextDrone() { return this.nextDrone; }
 
     public Drone getDrone() { return new Drone(id, "localhost", port); }
+
+    public DeliveryQueue getDeliveryQueue() { return this.deliveryQueue; }
 
     public void addDronePosition(InsertMessage.Drone drone, InsertMessage.Position position) {
         boolean exist = false;
@@ -103,19 +106,12 @@ public class DroneProcess {
         this.position = pair.getPosition();
     }
 
-    public DroneServiceBlockingStub getBlockingStub(Drone drone) {
-        final ManagedChannel managedChannel = ManagedChannelBuilder.forTarget(drone.getIp() +":"+ drone.getPort()).usePlaintext().build();
-        return DroneServiceGrpc.newBlockingStub(managedChannel);
-    }
-
-    public DroneServiceStub getStub(Drone drone) {
-        final ManagedChannel managedChannel = ManagedChannelBuilder.forTarget(drone.getIp() +":"+ drone.getPort()).usePlaintext().build();
-        return DroneServiceGrpc.newStub(managedChannel);
+    public ManagedChannel getChannel(Drone drone) {
+        return ManagedChannelBuilder.forTarget(drone.getIp() +":"+ drone.getPort()).usePlaintext().build();
     }
 
     public void setBroker(String broker){ this.broker = broker; }
 
-    //TODO implementing method to send starting position to all node
     private void insertIntoRing() throws MqttException {
         if(dronesList.getDrones().size() == 0){
             this.masterDrone = new Drone(this.id, "localhost", this.port);
@@ -126,25 +122,32 @@ public class DroneProcess {
         Drone drone = dronesList.getDrones().get(0);
         System.out.println("Try to communicate with: ");
         System.out.println(drone);
-        DroneServiceBlockingStub blockingStub = getBlockingStub(drone);
+        ManagedChannel channel = getChannel(drone);
+        DroneServiceBlockingStub blockingStub = DroneServiceGrpc.newBlockingStub(channel);
 
         InsertMessage.Drone callerDrone = InsertMessage.Drone.newBuilder().setId(id).setIp("localhost").setPort(port).build();
         InsertMessage.InsertRingRequest insertMessage = InsertMessage.InsertRingRequest.newBuilder().setCallerDrone(callerDrone).build();
 
         InsertMessage.InsertRingResponse insertRingResponse = blockingStub.insertIntoRing(insertMessage);
+        channel.shutdown();
 
         InsertMessage.Drone droneNext = insertRingResponse.getNextDrone();
         InsertMessage.Drone droneMaster = insertRingResponse.getMasterDrone();
         nextDrone = new Drone(droneNext.getId(),droneNext.getIp(), droneNext.getPort());
         masterDrone = new Drone(droneMaster.getId(), droneMaster.getIp(), droneMaster.getPort());
 
-        blockingStub = getBlockingStub(nextDrone);
+        channel = getChannel(nextDrone);
+        blockingStub = DroneServiceGrpc.newBlockingStub(channel);
         InsertMessage.Position positionMessage = InsertMessage.Position.newBuilder().setX((int) position.getX()).setY((int) position.getY()).build();
         blockingStub.sendPosition(InsertMessage.PositionRequest.newBuilder().setDrone(callerDrone).setPosition(positionMessage).build());
+        channel.shutdown();
     }
 
     private void becomeMaster() throws MqttException {
         this.master = true;
+
+        DeliveryHandler deliveryHandler = new DeliveryHandler(this);
+        deliveryHandler.start();
 
         MqttClient client = new MqttClient(broker, MqttClient.generateClientId());
         MqttConnectOptions options = new MqttConnectOptions();
@@ -162,6 +165,7 @@ public class DroneProcess {
                 System.out.println("******* New delivery arrived ********");
                 System.out.println(delivery);
                 System.out.println("*************************************");
+                deliveryQueue.add(delivery);
             }
 
             @Override
