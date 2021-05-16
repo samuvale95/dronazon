@@ -11,16 +11,23 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
+import io.grpc.stub.StreamObserver;
 import org.eclipse.paho.client.mqttv3.*;
 import project.sdp.dronazon.RandomDelivery;
 import project.sdp.server.beans.Drone;
 import project.sdp.server.beans.ListDrone;
 import project.sdp.server.beans.Pair;
-import project.sdp.drone.DeliveryQueue;
+
 import java.awt.*;
 import java.io.IOException;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Scanner;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /*
 * Ogni dorne e' un processo e non un thread
@@ -49,9 +56,10 @@ public class DroneProcess {
     private Drone masterDrone;
     private Drone nextDrone;
     private String broker;
-    private final DeliveryQueue deliveryQueue;
+    private final Buffer<project.sdp.dronazon.Delivery> deliveryQueue;
+    private final Buffer<InfoAndStats> infoAndStatsQueue;
     private int deliveryCount = 0;
-
+    private final ArrayList<InfoAndStats> globalStats;
 
     public DroneProcess(int id, int port, String URI_AdmServer){
         this.id = id;
@@ -60,7 +68,9 @@ public class DroneProcess {
         this.battery = 100;
         this.master = false;
         this.nextDrone = new Drone(id, "localhost", port);
-        this.deliveryQueue = new DeliveryQueue();
+        this.deliveryQueue = new Buffer<>();
+        this.infoAndStatsQueue = new Buffer<>();
+        this.globalStats = new ArrayList<>();
     }
 
     public Boolean isMaster(){ return this.master; }
@@ -73,7 +83,9 @@ public class DroneProcess {
 
     public Drone getDrone() { return new Drone(id, "localhost", port); }
 
-    public DeliveryQueue getDeliveryQueue() { return this.deliveryQueue; }
+    public Buffer<project.sdp.dronazon.Delivery> getDeliveryQueue() { return this.deliveryQueue; }
+
+    public Buffer<InfoAndStats> getInfoAndStatsQueue(){ return this.infoAndStatsQueue; }
 
     public ArrayList<Drone> getDronesList(){ return this.dronesList.getDrones(); }
 
@@ -117,7 +129,8 @@ public class DroneProcess {
     public void setBroker(String broker){ this.broker = broker; }
 
     private void insertIntoRing() throws MqttException {
-        if(dronesList.getDrones().size() == 0){
+        if(dronesList.getDrones().size() == 1){
+            System.out.println("I'm Drone Master");
             this.masterDrone = new Drone(this.id, "localhost", this.port);
             becomeMaster();
             return;
@@ -177,6 +190,19 @@ public class DroneProcess {
         });
 
         client.subscribe(DELIVERY_TOPIC);
+
+        InfoAndStatsHandler infoAndStatsHandler = new InfoAndStatsHandler(this);
+        infoAndStatsHandler.start();
+
+        final ScheduledExecutorService e = Executors.newScheduledThreadPool(1);
+
+        e.scheduleAtFixedRate(() -> {
+            System.out.println("\n");
+            System.out.println("************ SEND STATS TO SERVER **************");
+            System.out.println(globalStats);
+            System.out.println("************************************************");
+            System.out.println("\n");
+        }, 0, 10*1000, TimeUnit.MILLISECONDS);
     }
 
     public void makeDelivery(Delivery delivery) {
@@ -184,15 +210,40 @@ public class DroneProcess {
         try {
             Thread.sleep(5000);
             deliveryCount++;
+            battery -= 10;
+            position = delivery.getDeliveryPoint();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        //TODO implements send statistic to master
-        System.out.println("SEND STATISTIC TO MASTER");
         System.out.println("******** Delivery End *********");
+
+        System.out.println("\n");
+        System.out.println("********** Send statistic to SERVER ************");
+        final ManagedChannel channel = getChannel(nextDrone);
+        DroneServiceBlockingStub stub = DroneServiceGrpc.newBlockingStub(channel);
+
+        InsertMessage.InfoAndStatsRequest infoAndStatsMessage =
+                InsertMessage.InfoAndStatsRequest
+                .newBuilder()
+                .setCallerDrone(id)
+                .setBattery(battery)
+                .setAirPollution(0)
+                .setDistanceRoutes(10)
+                .setNewPosition(InsertMessage.Position
+                        .newBuilder()
+                        .setX((int) position.getX())
+                        .setY((int) position.getY())
+                        .build())
+                .setDeliveryTimeStamp(Timestamp.from(Instant.now()).getTime())
+                .setDroneTarget(masterDrone.getId())
+                .build();
+
+        stub.sendInfoAfterDelivery(infoAndStatsMessage);
+        System.out.println("*************** SENT STATISTIC TO MASTER ****************");
+        channel.shutdown();
     }
 
-    public void start() throws IOException, InterruptedException, MqttException {
+    public void start() throws IOException, MqttException {
         registerToServer();
 
         //Start gRPC server
@@ -201,12 +252,14 @@ public class DroneProcess {
 
         insertIntoRing();
 
-        while (true){
-            Thread.sleep(5000);
-        }
+        System.out.println("Drone started:");
+        System.out.println("ID: " + id);
+        System.out.println("Position: " + position);
+
+        while (true){}
     }
 
-    public static void main(String[] args) throws IOException, InterruptedException, MqttException {
+    public static void main(String[] args) throws IOException, MqttException {
         Scanner scanner = new Scanner(System.in);
 
         System.out.print("Insert a integer id of drone: ");
@@ -218,5 +271,11 @@ public class DroneProcess {
         DroneProcess drone = new DroneProcess(id, port, "http://localhost:1337");
         drone.setBroker("tcp://localhost:1883");
         drone.start();
+    }
+
+    public ArrayList<InfoAndStats> getGlobalStats() {
+        synchronized (globalStats) {
+            return globalStats;
+        }
     }
 }

@@ -6,7 +6,6 @@ import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
 import project.sdp.dronazon.Delivery;
 import project.sdp.server.beans.Drone;
-import java.awt.*;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Optional;
@@ -19,18 +18,27 @@ public class DeliveryHandler extends Thread{
         this.droneProcess = droneProcess;
     }
 
-    private Drone getDeliveryDrone(Point takeDelivery) {
+    private Drone getDeliveryDrone(Delivery delivery) {
         ArrayList<Drone> listDrone = droneProcess.getDronesList();
         ArrayList<Drone> possibleDrones = new ArrayList<>();
+
 
         listDrone.forEach(d -> {
             if(!d.getCommittedToDelivery())
                 possibleDrones.add(d);
         });
 
+        if(possibleDrones.size() == 0){ return null; }
+
         Optional<Drone> res = possibleDrones.stream().min((drone1, drone2) ->{
-            double distanceDrone1 = drone1.getPosition().distance(takeDelivery)/drone1.getBattery();
-            double distanceDrone2 = drone2.getPosition().distance(takeDelivery)/drone2.getBattery();
+            double distanceDrone1 = drone1.getPosition().distance(delivery.getTakePoint())/drone1.getBattery();
+            double distanceDrone2 = drone2.getPosition().distance(delivery.getTakePoint())/drone2.getBattery();
+
+            System.out.println("\n");
+            System.out.println("************* CALCULATE DISTANCE *****************");
+            System.out.println("Distance drone " + drone1 + " " + distanceDrone1);
+            System.out.println("Distance drone " + drone2 + " " + distanceDrone2);
+            System.out.println("**************************************************");
 
             if(distanceDrone1 < distanceDrone2) return -1;
             else if(distanceDrone1 > distanceDrone2) return 1;
@@ -38,27 +46,36 @@ public class DeliveryHandler extends Thread{
         });
 
         Drone result = res.orElse(null);
+
         synchronized (Objects.requireNonNull(result)) {
             result.setCommittedToDelivery(true);
         }
+        System.out.println("\n");
         System.out.println("********* LOG **********");
         System.out.println(droneProcess.getDronesList());
+        System.out.println("Next Delivery Drone: " + result);
         System.out.println("******* END LOG **********");
+        System.out.println("\n");
         return result;
     }
 
     @Override
     public void run() {
         while (true){
-            DeliveryQueue queue = droneProcess.getDeliveryQueue();
+            Buffer<Delivery> queue = droneProcess.getDeliveryQueue();
             Delivery delivery = null;
             try { delivery = queue.next(); }
             catch (InterruptedException e) { e.printStackTrace(); }
 
             assert delivery != null;
 
-            Drone deliveryDrone = getDeliveryDrone(delivery.getTakePoint());
-            assert deliveryDrone != null;
+            Drone deliveryDrone = getDeliveryDrone(delivery);
+
+            //All drone are busy
+            if(deliveryDrone == null){
+                droneProcess.getDeliveryQueue().add(delivery);
+                continue;
+            }
 
             InsertMessage.Drone droneTarget = InsertMessage.Drone
                     .newBuilder()

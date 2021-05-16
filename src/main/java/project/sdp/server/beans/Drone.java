@@ -17,6 +17,7 @@ public class Drone{
         this.ip = ip;
         this.port = port;
         this.committedToDelivery = false;
+        this.battery = 100;
     }
 
     public Drone(){}

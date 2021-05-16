@@ -83,4 +83,43 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             }
         });
     }
+
+    @Override
+    public void sendInfoAfterDelivery(InsertMessage.InfoAndStatsRequest request, StreamObserver<InsertMessage.InfoAndStatsResponse> responseObserver) {
+        System.out.println("Message STATS arrived to next drone");
+        if(droneProcess.getDrone().getId() == request.getDroneTarget()){
+            droneProcess.getInfoAndStatsQueue().add(
+                    new InfoAndStats(request.getDeliveryTimeStamp(),
+                            new Point(request.getNewPosition().getX(),
+                                    request.getNewPosition().getY()
+                            ),
+                            request.getBattery(),
+                            request.getDistanceRoutes(),
+                            request.getAirPollution(),
+                            request.getCallerDrone()
+                    )
+            );
+            responseObserver.onNext(InsertMessage.InfoAndStatsResponse.newBuilder().build());
+            responseObserver.onCompleted();
+            return;
+        }
+
+        ManagedChannel channel = droneProcess.getChannel(droneProcess.getNextDrone());
+        DroneServiceGrpc.DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
+        stub.sendInfoAfterDelivery(request, new StreamObserver<InsertMessage.InfoAndStatsResponse>() {
+            @Override
+            public void onNext(InsertMessage.InfoAndStatsResponse value) {}
+
+            @Override
+            public void onError(Throwable t) {}
+
+            @Override
+            public void onCompleted() {
+                System.out.println("STATS sent to next drone");
+                channel.shutdown();
+            }
+        });
+        responseObserver.onNext(InsertMessage.InfoAndStatsResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 }

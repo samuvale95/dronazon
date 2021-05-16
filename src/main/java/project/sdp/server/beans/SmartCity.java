@@ -1,7 +1,5 @@
 package project.sdp.server.beans;
 
-import javafx.util.Pair;
-
 import java.awt.*;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -41,10 +39,10 @@ public class SmartCity {
         if(city.get(drone.getId()) != null)
             throw new IllegalArgumentException("A drone with same id is already present in the city, try to change id");
 
-        ListDrone allDrones = getAllDrones();
         drone.setPosition(position);
         city.put(drone.getId(), drone);
-        return new project.sdp.server.beans.Pair(allDrones, position);
+
+        return new project.sdp.server.beans.Pair(getAllDrones(), position);
     }
 
     public synchronized void removeDrone(int id) {

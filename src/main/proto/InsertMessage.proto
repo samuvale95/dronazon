@@ -40,8 +40,21 @@ message DeliveryRequest{
 
 message DeliveryResponse{}
 
+message InfoAndStatsRequest{
+  optional double deliveryTimeStamp = 1;
+  optional Position newPosition = 2;
+  optional int32 battery = 3;
+  optional double distanceRoutes = 4;
+  optional double airPollution = 5;
+  optional int32 callerDrone = 6;
+  optional int32 droneTarget = 7;
+}
+
+message InfoAndStatsResponse{}
+
 service DroneService{
   rpc insertIntoRing(InsertRingRequest) returns(InsertRingResponse);
   rpc sendPosition(PositionRequest) returns(PositionResponse);
   rpc sendDelivery(DeliveryRequest) returns(DeliveryResponse);
+  rpc sendInfoAfterDelivery(InfoAndStatsRequest) returns(InfoAndStatsResponse);
 }
