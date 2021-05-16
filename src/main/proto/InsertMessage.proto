@@ -48,6 +48,7 @@ message InfoAndStatsRequest{
   optional double airPollution = 5;
   optional int32 callerDrone = 6;
   optional int32 droneTarget = 7;
+  optional int32 deliveryNumber = 8;
 }
 
 message InfoAndStatsResponse{}

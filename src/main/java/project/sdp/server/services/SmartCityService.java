@@ -26,7 +26,7 @@ package project.sdp.server.services;
 import com.google.gson.Gson;
 import project.sdp.server.beans.Drone;
 import project.sdp.server.beans.SmartCity;
-import project.sdp.server.beans.Statistic;
+import project.sdp.server.beans.Statistics;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
@@ -57,7 +57,7 @@ public class SmartCityService {
     @POST
     @Path("city/statistics")
     @Consumes({"application/json"})
-    public Response addStatistics(Statistic statistics){
+    public Response addStatistics(Statistics statistics){
         smartCity.addStatistic(statistics);
         return Response.ok().build();
     }

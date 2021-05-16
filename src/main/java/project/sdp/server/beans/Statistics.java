@@ -4,16 +4,16 @@ import javax.xml.bind.annotation.XmlRootElement;
 import java.sql.Timestamp;
 
 @XmlRootElement
-public class Statistic {
-    private DeliveryStats avgDelivery;
-    private DistanceStats avgDistance;
-    private int averagePollution;
-    private int averageBattery;
+public class Statistics {
+    private double avgDelivery;
+    private double avgDistance;
+    private double averagePollution;
+    private double averageBattery;
     private Timestamp timestamp;
 
-    public Statistic(){}
+    public Statistics(){}
 
-    public Statistic(DeliveryStats averageDelivery, DistanceStats averageDistance, int averagePollution, int averageBattery, Timestamp timestamp) {
+    public Statistics(double averageDelivery, double averageDistance, double averagePollution, double averageBattery, Timestamp timestamp) {
         this.avgDelivery = averageDelivery;
         this.avgDistance = averageDistance;
         this.averagePollution = averagePollution;
@@ -21,23 +21,23 @@ public class Statistic {
         this.timestamp = timestamp;
     }
 
-    public DeliveryStats getAverageDelivery() {
+    public double getAverageDelivery() {
         return avgDelivery;
     }
 
-    public void setAverageDelivery(DeliveryStats averageDelivery) {
+    public void setAverageDelivery(int averageDelivery) {
         this.avgDelivery = averageDelivery;
     }
 
-    public DistanceStats getAverageDistance() {
+    public double getAverageDistance() {
         return avgDistance;
     }
 
-    public void setAverageDistance(DistanceStats averageDistance) {
+    public void setAverageDistance(double averageDistance) {
         this.avgDistance = averageDistance;
     }
 
-    public int getAveragePollution() {
+    public double getAveragePollution() {
         return averagePollution;
     }
 
@@ -45,7 +45,7 @@ public class Statistic {
         this.averagePollution = averagePollution;
     }
 
-    public int getAverageBattery() {
+    public double getAverageBattery() {
         return averageBattery;
     }
 

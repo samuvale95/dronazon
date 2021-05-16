@@ -9,7 +9,7 @@ import java.util.Random;
 public class SmartCity {
     private static SmartCity instance;
     private final HashMap<Integer , Drone> city;
-    private final ArrayList<Statistic> statistics;
+    private final ArrayList<Statistics> statistics;
     private static int length = 10;
     private static int height = 10;
 
@@ -52,7 +52,7 @@ public class SmartCity {
         city.remove(id);
     }
 
-    public synchronized void addStatistic(Statistic statistic){
+    public synchronized void addStatistic(Statistics statistic){
         this.statistics.add(statistic);
     }
 
@@ -62,21 +62,21 @@ public class SmartCity {
         return drones;
     }
 
-    public ArrayList<Statistic> getGlobalStatistics(Timestamp fromTs, Timestamp toTs) {
-        ArrayList<Statistic> gStatistics = new ArrayList<>();
+    public ArrayList<Statistics> getGlobalStatistics(Timestamp fromTs, Timestamp toTs) {
+        ArrayList<Statistics> gStatistics = new ArrayList<>();
         statistics.forEach((value) -> { if(value.getTimestamp().after(fromTs) && value.getTimestamp().before(toTs)) gStatistics.add(value);});
         return gStatistics;
     }
 
-    public ArrayList<DeliveryStats> getDeliveryStatistics(Timestamp fromTs, Timestamp toTs) {
-        ArrayList<DeliveryStats> gStatistics = new ArrayList<>();
-        statistics.forEach((value) -> { if(value.getTimestamp().after(fromTs) && value.getTimestamp().before(toTs)) gStatistics.add(value.getAverageDelivery());});
+    public ArrayList<Statistics> getDeliveryStatistics(Timestamp fromTs, Timestamp toTs) {
+        ArrayList<Statistics> gStatistics = new ArrayList<>();
+        statistics.forEach((value) -> { if(value.getTimestamp().after(fromTs) && value.getTimestamp().before(toTs)) gStatistics.add(value);});
         return gStatistics;
     }
 
-    public ArrayList<DistanceStats> getDistanceStatistics(Timestamp fromTs, Timestamp toTs) {
-        ArrayList<DistanceStats> gStatistics = new ArrayList<>();
-        statistics.forEach((value) -> { if(value.getTimestamp().after(fromTs) && value.getTimestamp().before(toTs)) gStatistics.add(value.getAverageDistance());});
+    public ArrayList<Statistics> getDistanceStatistics(Timestamp fromTs, Timestamp toTs) {
+        ArrayList<Statistics> gStatistics = new ArrayList<>();
+        statistics.forEach((value) -> { if(value.getTimestamp().after(fromTs) && value.getTimestamp().before(toTs)) gStatistics.add(value);});
         return gStatistics;
     }
 }

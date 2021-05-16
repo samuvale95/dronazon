@@ -57,6 +57,7 @@ public class DroneProcess {
     private String broker;
     private Master masterProcess;
     private int deliveryCount = 0;
+    private double distance = 0;
 
     public DroneProcess(int id, int port, String URI_AdmServer){
         this.id = id;
@@ -162,6 +163,7 @@ public class DroneProcess {
             deliveryCount++;
             battery -= 10;
             position = delivery.getDeliveryPoint();
+            distance += position.distance(delivery.getTakePoint()) + delivery.getTakePoint().distance(delivery.getDeliveryPoint());
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -178,7 +180,7 @@ public class DroneProcess {
                 .setCallerDrone(id)
                 .setBattery(battery)
                 .setAirPollution(0)
-                .setDistanceRoutes(10)
+                .setDistanceRoutes(distance)
                 .setNewPosition(InsertMessage.Position
                         .newBuilder()
                         .setX((int) position.getX())
@@ -186,6 +188,7 @@ public class DroneProcess {
                         .build())
                 .setDeliveryTimeStamp(Timestamp.from(Instant.now()).getTime())
                 .setDroneTarget(masterDrone.getId())
+                .setDeliveryNumber(deliveryCount)
                 .build();
 
         stub.sendInfoAfterDelivery(infoAndStatsMessage);
@@ -193,10 +196,11 @@ public class DroneProcess {
         channel.shutdown();
     }
 
-
     public String getBroker() {
         return this.broker;
     }
+
+    public String getAdministratorServer(){ return this.URI_AdmServer; }
 
     public void start() throws IOException, MqttException {
         registerToServer();

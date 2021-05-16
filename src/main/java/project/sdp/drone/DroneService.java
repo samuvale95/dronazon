@@ -96,7 +96,8 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                             request.getBattery(),
                             request.getDistanceRoutes(),
                             request.getAirPollution(),
-                            request.getCallerDrone()
+                            request.getCallerDrone(),
+                            request.getDeliveryNumber()
                     )
             );
             responseObserver.onNext(InsertMessage.InfoAndStatsResponse.newBuilder().build());
