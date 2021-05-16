@@ -88,7 +88,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
     public void sendInfoAfterDelivery(InsertMessage.InfoAndStatsRequest request, StreamObserver<InsertMessage.InfoAndStatsResponse> responseObserver) {
         System.out.println("Message STATS arrived to next drone");
         if(droneProcess.getDrone().getId() == request.getDroneTarget()){
-            droneProcess.getInfoAndStatsQueue().add(
+            droneProcess.getMasterProcess().getInfoAndStatsQueue().add(
                     new InfoAndStats(request.getDeliveryTimeStamp(),
                             new Point(request.getNewPosition().getX(),
                                     request.getNewPosition().getY()

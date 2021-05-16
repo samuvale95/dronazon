@@ -45,7 +45,6 @@ import java.util.concurrent.TimeUnit;
 *
 * */
 public class DroneProcess {
-    private static final String DELIVERY_TOPIC = "dronazon/smarcity/orders";
     private final int id;
     private final int port;
     private final String URI_AdmServer;
@@ -56,10 +55,8 @@ public class DroneProcess {
     private Drone masterDrone;
     private Drone nextDrone;
     private String broker;
-    private final Buffer<project.sdp.dronazon.Delivery> deliveryQueue;
-    private final Buffer<InfoAndStats> infoAndStatsQueue;
+    private Master masterProcess;
     private int deliveryCount = 0;
-    private final ArrayList<InfoAndStats> globalStats;
 
     public DroneProcess(int id, int port, String URI_AdmServer){
         this.id = id;
@@ -68,9 +65,6 @@ public class DroneProcess {
         this.battery = 100;
         this.master = false;
         this.nextDrone = new Drone(id, "localhost", port);
-        this.deliveryQueue = new Buffer<>();
-        this.infoAndStatsQueue = new Buffer<>();
-        this.globalStats = new ArrayList<>();
     }
 
     public Boolean isMaster(){ return this.master; }
@@ -82,10 +76,6 @@ public class DroneProcess {
     public Drone getNextDrone() { return this.nextDrone; }
 
     public Drone getDrone() { return new Drone(id, "localhost", port); }
-
-    public Buffer<project.sdp.dronazon.Delivery> getDeliveryQueue() { return this.deliveryQueue; }
-
-    public Buffer<InfoAndStats> getInfoAndStatsQueue(){ return this.infoAndStatsQueue; }
 
     public ArrayList<Drone> getDronesList(){ return this.dronesList.getDrones(); }
 
@@ -131,8 +121,9 @@ public class DroneProcess {
     private void insertIntoRing() throws MqttException {
         if(dronesList.getDrones().size() == 1){
             System.out.println("I'm Drone Master");
-            this.masterDrone = new Drone(this.id, "localhost", this.port);
-            becomeMaster();
+            this.masterDrone = new Drone(id, "localhost", port);
+            masterProcess = new Master(this);
+            masterProcess.start();
             return;
         }
 
@@ -160,50 +151,9 @@ public class DroneProcess {
         channel.shutdown();
     }
 
-    private void becomeMaster() throws MqttException {
-        this.master = true;
+    public void setMaster(Boolean state){ this.master = state; }
 
-        DeliveryHandler deliveryHandler = new DeliveryHandler(this);
-        deliveryHandler.start();
-
-        MqttClient client = new MqttClient(broker, MqttClient.generateClientId());
-        MqttConnectOptions options = new MqttConnectOptions();
-        options.setCleanSession(true);
-        client.connect(options);
-
-        client.setCallback(new MqttCallback() {
-            @Override
-            public void connectionLost(Throwable cause) {}
-
-            @Override
-            public void messageArrived(String topic, MqttMessage message) {
-                Gson gson = new Gson();
-                RandomDelivery delivery = gson.fromJson(new String(message.getPayload()), RandomDelivery.class);
-                System.out.println("******* New delivery arrived ********");
-                System.out.println(delivery);
-                System.out.println("*************************************");
-                deliveryQueue.add(delivery);
-            }
-
-            @Override
-            public void deliveryComplete(IMqttDeliveryToken token) {}
-        });
-
-        client.subscribe(DELIVERY_TOPIC);
-
-        InfoAndStatsHandler infoAndStatsHandler = new InfoAndStatsHandler(this);
-        infoAndStatsHandler.start();
-
-        final ScheduledExecutorService e = Executors.newScheduledThreadPool(1);
-
-        e.scheduleAtFixedRate(() -> {
-            System.out.println("\n");
-            System.out.println("************ SEND STATS TO SERVER **************");
-            System.out.println(globalStats);
-            System.out.println("************************************************");
-            System.out.println("\n");
-        }, 0, 10*1000, TimeUnit.MILLISECONDS);
-    }
+    public Master getMasterProcess() { return this.masterProcess; }
 
     public void makeDelivery(Delivery delivery) {
         System.out.println("****+ Making a delivery *******");
@@ -243,6 +193,11 @@ public class DroneProcess {
         channel.shutdown();
     }
 
+
+    public String getBroker() {
+        return this.broker;
+    }
+
     public void start() throws IOException, MqttException {
         registerToServer();
 
@@ -255,6 +210,13 @@ public class DroneProcess {
         System.out.println("Drone started:");
         System.out.println("ID: " + id);
         System.out.println("Position: " + position);
+
+        final ScheduledExecutorService e = Executors.newScheduledThreadPool(1);
+        e.scheduleAtFixedRate(() -> {
+            System.out.println("\n");
+            System.out.println("Number of delivery: " + deliveryCount);
+            System.out.println("\n");
+        }, 0, 10*1000, TimeUnit.MILLISECONDS);
 
         while (true){}
     }
@@ -271,11 +233,5 @@ public class DroneProcess {
         DroneProcess drone = new DroneProcess(id, port, "http://localhost:1337");
         drone.setBroker("tcp://localhost:1883");
         drone.start();
-    }
-
-    public ArrayList<InfoAndStats> getGlobalStats() {
-        synchronized (globalStats) {
-            return globalStats;
-        }
     }
 }

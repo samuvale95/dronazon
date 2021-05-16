@@ -16,7 +16,7 @@ public class InfoAndStatsHandler extends Thread{
     @Override
     public void run() {
         while(true) {
-            Buffer<InfoAndStats> queue = droneProcess.getInfoAndStatsQueue();
+            Buffer<InfoAndStats> queue = droneProcess.getMasterProcess().getInfoAndStatsQueue();
             InfoAndStats infoAndStats = null;
             try {
                 infoAndStats = queue.next();
@@ -39,7 +39,7 @@ public class InfoAndStatsHandler extends Thread{
                 }
             });
 
-            droneProcess.getGlobalStats().add(infoAndStats);
+            droneProcess.getMasterProcess().getGlobalStats().add(infoAndStats);
         }
     }
 }

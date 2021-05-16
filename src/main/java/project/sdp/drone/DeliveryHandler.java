@@ -62,7 +62,7 @@ public class DeliveryHandler extends Thread{
     @Override
     public void run() {
         while (true){
-            Buffer<Delivery> queue = droneProcess.getDeliveryQueue();
+            Buffer<Delivery> queue = droneProcess.getMasterProcess().getDeliveryQueue();
             Delivery delivery = null;
             try { delivery = queue.next(); }
             catch (InterruptedException e) { e.printStackTrace(); }
@@ -73,7 +73,7 @@ public class DeliveryHandler extends Thread{
 
             //All drone are busy
             if(deliveryDrone == null){
-                droneProcess.getDeliveryQueue().add(delivery);
+                droneProcess.getMasterProcess().getDeliveryQueue().add(delivery);
                 continue;
             }
 
