@@ -62,21 +62,19 @@ public class SmartCity {
         return drones;
     }
 
-    public ArrayList<Statistics> getGlobalStatistics(Timestamp fromTs, Timestamp toTs) {
+    public ArrayList<Statistics> getGlobalStatistics(int n) {
+        return statistics;
+    }
+
+    public ArrayList<Statistics> getDeliveryStatistics(String from, String to) {
         ArrayList<Statistics> gStatistics = new ArrayList<>();
-        statistics.forEach((value) -> { if(value.getTimestamp().after(fromTs) && value.getTimestamp().before(toTs)) gStatistics.add(value);});
+        statistics.forEach((value) -> { if(value.getTimestamp().compareTo(from) >= 0 && value.getTimestamp().compareTo(to) <= 0) gStatistics.add(value);});
         return gStatistics;
     }
 
-    public ArrayList<Statistics> getDeliveryStatistics(Timestamp fromTs, Timestamp toTs) {
+    public ArrayList<Statistics> getDistanceStatistics(String from, String to) {
         ArrayList<Statistics> gStatistics = new ArrayList<>();
-        statistics.forEach((value) -> { if(value.getTimestamp().after(fromTs) && value.getTimestamp().before(toTs)) gStatistics.add(value);});
-        return gStatistics;
-    }
-
-    public ArrayList<Statistics> getDistanceStatistics(Timestamp fromTs, Timestamp toTs) {
-        ArrayList<Statistics> gStatistics = new ArrayList<>();
-        statistics.forEach((value) -> { if(value.getTimestamp().after(fromTs) && value.getTimestamp().before(toTs)) gStatistics.add(value);});
+        statistics.forEach((value) -> { if(value.getTimestamp().compareTo(from)>=0 && value.getTimestamp().compareTo(to)<=0) gStatistics.add(value);});
         return gStatistics;
     }
 }

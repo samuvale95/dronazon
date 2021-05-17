@@ -1,5 +1,8 @@
 package project.sdp.server.beans;
 
+import org.codehaus.jackson.annotate.JsonIgnore;
+
+import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import java.sql.Timestamp;
 
@@ -9,11 +12,11 @@ public class Statistics {
     private double avgDistance;
     private double averagePollution;
     private double averageBattery;
-    private Timestamp timestamp;
+    private String timestamp;
 
     public Statistics(){}
 
-    public Statistics(double averageDelivery, double averageDistance, double averagePollution, double averageBattery, Timestamp timestamp) {
+    public Statistics(double averageDelivery, double averageDistance, double averagePollution, double averageBattery, String timestamp) {
         this.avgDelivery = averageDelivery;
         this.avgDistance = averageDistance;
         this.averagePollution = averagePollution;
@@ -21,43 +24,34 @@ public class Statistics {
         this.timestamp = timestamp;
     }
 
-    public double getAverageDelivery() {
+    public double getAvgDelivery() {
         return avgDelivery;
     }
 
-    public void setAverageDelivery(int averageDelivery) {
-        this.avgDelivery = averageDelivery;
-    }
-
-    public double getAverageDistance() {
+    public double getAvgDistance() {
         return avgDistance;
-    }
-
-    public void setAverageDistance(double averageDistance) {
-        this.avgDistance = averageDistance;
     }
 
     public double getAveragePollution() {
         return averagePollution;
     }
 
-    public void setAveragePollution(int averagePollution) {
-        this.averagePollution = averagePollution;
-    }
-
     public double getAverageBattery() {
         return averageBattery;
     }
 
-    public void setAverageBattery(int averageBattery) {
-        this.averageBattery = averageBattery;
-    }
-
-    public Timestamp getTimestamp() {
+    public String getTimestamp() {
         return timestamp;
     }
 
-    public void setTimestamp(Timestamp timestamp) {
-        this.timestamp = timestamp;
+    @Override
+    public String toString() {
+        return "Statistics{" +
+                "avgDelivery=" + avgDelivery +
+                ", avgDistance=" + avgDistance +
+                ", averagePollution=" + averagePollution +
+                ", averageBattery=" + averageBattery +
+                ", timestamp=" + timestamp +
+                '}';
     }
 }

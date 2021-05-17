@@ -70,32 +70,23 @@ public class SmartCityService {
     }
 
     @GET
-    @Path("city/statistics/from/{from}/to/{to}")
+    @Path("city/statistics/{n}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getGlobalStatistics(@PathParam("from") String from,@PathParam("to") String to){
-        Timestamp fromTs = new Timestamp(Date.valueOf(from).getTime());
-        Timestamp toTs = new Timestamp(Date.valueOf(from).getTime());
-
-        return Response.ok(smartCity.getGlobalStatistics(fromTs, toTs)).build();
+    public Response getGlobalStatistics(@PathParam("n") int n){
+        return Response.ok(smartCity.getGlobalStatistics(n)).build();
     }
 
     @GET
     @Path("drone/all/statistics/delivery/from/{from}/to/{to}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getDeliveryStatistics(@PathParam("from") String from,@PathParam("to") String to){
-        Timestamp fromTs = new Timestamp(Date.valueOf(from).getTime());
-        Timestamp toTs = new Timestamp(Date.valueOf(from).getTime());
-
-        return Response.ok(smartCity.getDeliveryStatistics(fromTs, toTs)).build();
+        return Response.ok(smartCity.getDeliveryStatistics(from, to)).build();
     }
 
     @GET
     @Path("drone/all/statistics/distance/from/{from}/to/{to}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getDistanceStatistics(@PathParam("from") String from,@PathParam("to") String to){
-        Timestamp fromTs = new Timestamp(Date.valueOf(from).getTime());
-        Timestamp toTs = new Timestamp(Date.valueOf(from).getTime());
-
-        return Response.ok(smartCity.getDistanceStatistics(fromTs, toTs)).build();
+        return Response.ok(smartCity.getDistanceStatistics(from, to)).build();
     }
 }

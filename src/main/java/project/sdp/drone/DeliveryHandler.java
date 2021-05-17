@@ -31,8 +31,8 @@ public class DeliveryHandler extends Thread{
         if(possibleDrones.size() == 0){ return null; }
 
         Optional<Drone> res = possibleDrones.stream().min((drone1, drone2) ->{
-            double distanceDrone1 = drone1.getPosition().distance(delivery.getTakePoint())/drone1.getBattery();
-            double distanceDrone2 = drone2.getPosition().distance(delivery.getTakePoint())/drone2.getBattery();
+            double distanceDrone1 = drone1.getPosition().distance(delivery.getTakePoint())*drone1.getBattery();
+            double distanceDrone2 = drone2.getPosition().distance(delivery.getTakePoint())*drone2.getBattery();
 
             System.out.println("\n");
             System.out.println("************* CALCULATE DISTANCE *****************");

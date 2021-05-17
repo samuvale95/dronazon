@@ -1,19 +1,11 @@
 package project.sdp.drone;
 
 import com.google.gson.Gson;
-import com.sun.jersey.api.client.Client;
-import com.sun.jersey.api.client.ClientResponse;
-import com.sun.jersey.api.client.WebResource;
 import org.eclipse.paho.client.mqttv3.*;
 import project.sdp.dronazon.RandomDelivery;
-import project.sdp.server.beans.Statistics;
 
-import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.ArrayList;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+
 
 public class Master extends Thread{
 
@@ -35,9 +27,7 @@ public class Master extends Thread{
     public Buffer<project.sdp.dronazon.Delivery> getDeliveryQueue() { return this.deliveryQueue; }
     public Buffer<InfoAndStats> getInfoAndStatsQueue(){ return this.infoAndStatsQueue; }
     public ArrayList<InfoAndStats> getGlobalStats() {
-        synchronized (globalStats) {
             return globalStats;
-        }
     }
 
     @Override
@@ -82,41 +72,8 @@ public class Master extends Thread{
             e.printStackTrace();
         }
 
-        InfoAndStatsHandler infoAndStatsHandler = new InfoAndStatsHandler(droneProcess);
-        infoAndStatsHandler.start();
-
-        final ScheduledExecutorService e = Executors.newScheduledThreadPool(1);
-
-        e.scheduleAtFixedRate(() -> {
-            System.out.println("\n");
-            System.out.println("************ SEND STATS TO SERVER **************");
-            sendGlobalStatistics();
-            System.out.println("************************************************");
-            System.out.println("\n");
-        }, 0, 10*1000, TimeUnit.MILLISECONDS);
-    }
-
-    private void sendGlobalStatistics() {
-        Client client = Client.create();
-
-        Statistics statistic = calculateGlobalStatistics();
-
-        WebResource webResource = client.resource(droneProcess.getAdministratorServer() + "city/statistics");
-        ClientResponse clientResponse = webResource.type("application/json").post(ClientResponse.class, statistic);
-
-        if(clientResponse.getStatus() != 200)
-            throw new RuntimeException("Something in your request is wrong " + clientResponse.getStatus());
-
-        System.out.println(clientResponse);
-    }
-
-    private Statistics calculateGlobalStatistics() {
-        Double distance = globalStats.stream().reduce(0.0, (acc, stats)-> acc+stats.getDistanceRoutes(), Double::sum);
-        int deliveryNumber = globalStats.stream().reduce(0, (acc, stats)-> acc+stats.getDeliveryNumber(), Integer::sum);
-        double pollution = globalStats.stream().reduce(0.0, (acc, stats)-> acc+stats.getAirPollution(), Double::sum);
-        int battery = globalStats.stream().reduce(0, (acc, stats)-> acc+stats.getBattery(), Integer::sum);
-        double droneNumber = droneProcess.getDronesList().size();
-        return new Statistics(deliveryNumber/droneNumber, distance/droneNumber, pollution/droneNumber, battery/droneNumber, Timestamp.from(Instant.now()));
+        new InfoAndStatsHandler(droneProcess).start();
+        new StatisticsSender(droneProcess).start();
     }
 
 }

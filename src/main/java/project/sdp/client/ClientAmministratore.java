@@ -29,19 +29,17 @@ public class ClientAmministratore {
             Client client = Client.create();
             WebResource webResource = null;
             ClientResponse response;
-            String from, to;
+            String from, to, n;
 
             switch (option){
                 case "1":
                     webResource = client.resource(BASE_URI + "/dronazon/drone/getAll");
                     break;
                 case "2":
-                    System.out.println("Insert date from (dd-mm-yyyy): ");
-                    from = scanner.nextLine();
-                    System.out.println("Insert date to (dd-mm-yyyy): ");
-                    to = scanner.nextLine();
+                    System.out.println("Insert number of statistics: ");
+                    n = scanner.nextLine();
 
-                     webResource = client.resource(BASE_URI + "/city/statistics/from/"+from+"/to/"+to);
+                     webResource = client.resource(BASE_URI + "/dronazon/city/statistics/"+n);
                      break;
                 case "3":
                     System.out.println("Insert date from (dd-mm-yyyy): ");
@@ -49,7 +47,7 @@ public class ClientAmministratore {
                     System.out.println("Insert date to (dd-mm-yyyy): ");
                     to = scanner.nextLine();
 
-                    webResource = client.resource(BASE_URI + "/city/statistics/delivery/from/"+from+"/to/"+to);
+                    webResource = client.resource(BASE_URI + "/dronazon/city/statistics/delivery/from/"+from+"/to/"+to);
                     break;
                 case "4":
                     System.out.println("Insert date from (dd-mm-yyyy): ");
@@ -57,7 +55,7 @@ public class ClientAmministratore {
                     System.out.println("Insert date to (dd-mm-yyyy): ");
                     to = scanner.nextLine();
 
-                    webResource = client.resource(BASE_URI + "/city/statistics/distance/from/"+from+"/to/"+to);
+                    webResource = client.resource(BASE_URI + "/dronazon/city/statistics/distance/from/"+from+"/to/"+to);
                     break;
             }
 
@@ -68,6 +66,8 @@ public class ClientAmministratore {
 
             String drones = response.getEntity(String.class);
             System.out.println(drones);
+            System.out.println("\n");
+            System.out.println(mainMenu);
         }
     }
 

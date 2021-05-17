@@ -1,5 +1,8 @@
 package project.sdp.server.beans;
 
+import org.codehaus.jackson.annotate.JsonIgnore;
+
+import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import java.awt.*;
 
@@ -8,6 +11,7 @@ public class Drone{
     private int id;
     private String ip;
     private int port;
+    @JsonIgnore
     private Point position;
     private Boolean committedToDelivery;
     private int battery;
@@ -54,6 +58,7 @@ public class Drone{
         this.battery = battery;
     }
 
+    @XmlElement
     public int getBattery() {
         return battery;
     }
