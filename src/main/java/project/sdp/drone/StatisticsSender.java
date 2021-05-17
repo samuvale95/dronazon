@@ -18,12 +18,17 @@ public class StatisticsSender extends Thread{
 
     //TODO fix global statistic calculator
     private Statistics calculateGlobalStatistics() {
-        Double distance = master.getGlobalStats().stream().reduce(0.0, (acc, stats)-> acc+stats.getDistanceRoutes(), Double::sum);
-        int deliveryNumber = master.getGlobalStats().stream().reduce(0, (acc, stats)-> acc+stats.getDeliveryNumber(), Integer::sum);
-        double pollution = master.getGlobalStats().stream().reduce(0.0, (acc, stats)-> acc+stats.getAirPollution(), Double::sum);
-        int battery = master.getGlobalStats().stream().reduce(0, (acc, stats)-> acc+stats.getBattery(), Integer::sum);
+        Double distance = master.getGlobalStats().stream().map(InfoAndStats::getDistanceRoutes).reduce(0.0, Double::sum);
+        int deliveryNumber = master.getGlobalStats().stream().map(InfoAndStats::getDeliveryNumber).reduce(0, Integer::sum);
+        double pollution = master.getGlobalStats().stream().map(InfoAndStats::getAirPollution).reduce(0.0, Double::sum);
+        int battery = master.getGlobalStats().stream().map(InfoAndStats::getBattery).reduce(0, Integer::sum);
         double droneNumber = droneProcess.getDronesList().size();
-        return new Statistics(deliveryNumber/droneNumber, distance/droneNumber, pollution/droneNumber, battery/droneNumber, new Timestamp(System.currentTimeMillis()).toString());
+        Statistics result = new Statistics(deliveryNumber/droneNumber, distance/droneNumber, pollution/droneNumber, battery/droneNumber, new Timestamp(System.currentTimeMillis()).toString());
+        System.out.println("\n");
+        System.out.println("CHECK STATISTICS VALIDATION");
+        System.out.println(result);
+        System.out.println("\n");
+        return result;
     }
 
     private void sendGlobalStatistics() {

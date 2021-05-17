@@ -63,7 +63,7 @@ public class SmartCity {
     }
 
     public ArrayList<Statistics> getGlobalStatistics(int n) {
-        return statistics;
+        return new ArrayList<>(statistics.subList(0,n));
     }
 
     public ArrayList<Statistics> getDeliveryStatistics(String from, String to) {

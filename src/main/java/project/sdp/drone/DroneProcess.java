@@ -119,7 +119,7 @@ public class DroneProcess {
 
     public void setBroker(String broker){ this.broker = broker; }
 
-    private void insertIntoRing() throws MqttException {
+    private void insertIntoRing() {
         if(dronesList.getDrones().size() == 1){
             System.out.println("I'm Drone Master");
             this.masterDrone = new Drone(id, "localhost", port);
@@ -192,7 +192,11 @@ public class DroneProcess {
                 .build();
 
         stub.sendInfoAfterDelivery(infoAndStatsMessage);
+        System.out.println("\n");
         System.out.println("*************** SENT STATISTIC TO MASTER ****************");
+        System.out.println(infoAndStatsMessage);
+        System.out.println("***********************************************************");
+        System.out.println("\n");
         channel.shutdown();
     }
 

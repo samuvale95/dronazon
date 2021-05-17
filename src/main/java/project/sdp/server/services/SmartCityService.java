@@ -59,6 +59,8 @@ public class SmartCityService {
     @Consumes({"application/json"})
     public Response addStatistics(Statistics statistics){
         smartCity.addStatistic(statistics);
+        System.out.println(statistics);
+        smartCity.getGlobalStatistics(0);
         return Response.ok().build();
     }
 
