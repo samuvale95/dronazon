@@ -16,30 +16,33 @@ public class InfoAndStatsHandler extends Thread{
     @Override
     public void run() {
         while(true) {
-            Buffer<InfoAndStats> queue = droneProcess.getMasterProcess().getInfoAndStatsQueue();
-            InfoAndStats infoAndStats = null;
-            try {
-                infoAndStats = queue.next();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            assert infoAndStats != null;
-            int callerDroneId = infoAndStats.getCallerDrone();
-            Point newPosition = infoAndStats.getNewPosition();
-            int battery = infoAndStats.getBattery();
+            synchronized (droneProcess) {
+                Buffer<InfoAndStats> queue = droneProcess.getMasterProcess().getInfoAndStatsQueue();
+                InfoAndStats infoAndStats = null;
+                System.out.println(queue);
+                try {
+                    infoAndStats = queue.next();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                assert infoAndStats != null;
+                int callerDroneId = infoAndStats.getCallerDrone();
+                Point newPosition = infoAndStats.getNewPosition();
+                int battery = infoAndStats.getBattery();
 
-            ArrayList<Drone> listDrone = droneProcess.getDronesList();
-            listDrone.forEach(drone -> {
-                synchronized (listDrone) {
+                ArrayList<Drone> listDrone = droneProcess.getDronesList();
+                System.out.println(infoAndStats);
+                for (Drone drone: listDrone) {
                     if (drone.getId() == callerDroneId) {
                         drone.setCommittedToDelivery(false);
                         drone.setPosition(newPosition);
                         drone.setBattery(battery);
+
                     }
                 }
-            });
 
-            droneProcess.getMasterProcess().getGlobalStats().add(infoAndStats);
+                droneProcess.getMasterProcess().getGlobalStats().add(infoAndStats);
+            }
         }
     }
 }

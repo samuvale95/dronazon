@@ -16,30 +16,17 @@ public class StatisticsSender extends Thread{
         this.master = droneProcess.getMasterProcess();
     }
 
-    //TODO fix global statistic calculator
     private Statistics calculateGlobalStatistics() {
         Double distance = master.getGlobalStats().stream().map(InfoAndStats::getDistanceRoutes).reduce(0.0, Double::sum);
         int deliveryNumber = master.getGlobalStats().stream().map(InfoAndStats::getDeliveryNumber).reduce(0, Integer::sum);
         double pollution = master.getGlobalStats().stream().map(InfoAndStats::getAirPollution).reduce(0.0, Double::sum);
         int battery = master.getGlobalStats().stream().map(InfoAndStats::getBattery).reduce(0, Integer::sum);
         double droneNumber = droneProcess.getDronesList().size();
-        Statistics result = new Statistics(deliveryNumber/droneNumber, distance/droneNumber, pollution/droneNumber, battery/droneNumber, new Timestamp(System.currentTimeMillis()).toString());
-        System.out.println("\n");
-        System.out.println("CHECK STATISTICS VALIDATION");
-        System.out.println(result);
-        System.out.println("\n");
-        return result;
+        return new Statistics(deliveryNumber/droneNumber, distance/droneNumber, pollution/droneNumber, battery/droneNumber, new Timestamp(System.currentTimeMillis()).toString());
     }
 
     private void sendGlobalStatistics() {
-        System.out.println("\n");
-        System.out.println("sending global stats to server");
-        System.out.println("\n");
-
-        if(master.getGlobalStats().size() == 0) {
-            System.out.println("Global stats are zero!!");
-            return;
-        }
+        if(master.getGlobalStats().size() == 0) return;
 
         Client client = Client.create();
 
@@ -59,11 +46,7 @@ public class StatisticsSender extends Thread{
     @Override
     public void run() {
         while(true){
-            System.out.println("\n");
-            System.out.println("************ SEND STATS TO SERVER **************");
             sendGlobalStatistics();
-            System.out.println("************************************************");
-            System.out.println("\n");
             try {
                 Thread.sleep(10*1000);
             } catch (InterruptedException e) {

@@ -1,7 +1,5 @@
 package project.sdp.drone;
 
-import project.sdp.dronazon.Delivery;
-
 import java.util.ArrayList;
 
 public class Buffer<E> {
@@ -18,7 +16,14 @@ public class Buffer<E> {
     }
 
     public synchronized E next() throws InterruptedException {
-        if(queue.size() == 0) this.wait();
+        while(queue.size() == 0){this.wait();};
         return queue.remove(queue.size()-1);
+    }
+
+    @Override
+    public String toString() {
+        return "Buffer{" +
+                "queue=" + queue +
+                '}';
     }
 }

@@ -74,6 +74,7 @@ public class Drone{
                 ", ip='" + ip + '\'' +
                 ", port=" + port +
                 ", position=" + position +
+                ", committedToDelivery=" + committedToDelivery +
                 '}';
     }
 

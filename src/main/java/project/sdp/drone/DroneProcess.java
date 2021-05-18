@@ -11,9 +11,7 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
-import io.grpc.stub.StreamObserver;
 import org.eclipse.paho.client.mqttv3.*;
-import project.sdp.dronazon.RandomDelivery;
 import project.sdp.server.beans.Drone;
 import project.sdp.server.beans.ListDrone;
 import project.sdp.server.beans.Pair;
@@ -24,7 +22,6 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Scanner;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -170,7 +167,6 @@ public class DroneProcess {
         System.out.println("******** Delivery End *********");
 
         System.out.println("\n");
-        System.out.println("********** Send statistic to SERVER ************");
         final ManagedChannel channel = getChannel(nextDrone);
         DroneServiceBlockingStub stub = DroneServiceGrpc.newBlockingStub(channel);
 
@@ -191,12 +187,23 @@ public class DroneProcess {
                 .setDeliveryNumber(deliveryCount)
                 .build();
 
+        if(master){
+            masterProcess.getInfoAndStatsQueue().add(
+                    new InfoAndStats(infoAndStatsMessage.getDeliveryTimeStamp(),
+                            new Point(infoAndStatsMessage.getNewPosition().getX(),
+                                    infoAndStatsMessage.getNewPosition().getY()
+                            ),
+                            infoAndStatsMessage.getBattery(),
+                            infoAndStatsMessage.getDistanceRoutes(),
+                            infoAndStatsMessage.getAirPollution(),
+                            infoAndStatsMessage.getCallerDrone(),
+                            infoAndStatsMessage.getDeliveryNumber()
+                    )
+            );
+            channel.shutdown();
+            return;
+        }
         stub.sendInfoAfterDelivery(infoAndStatsMessage);
-        System.out.println("\n");
-        System.out.println("*************** SENT STATISTIC TO MASTER ****************");
-        System.out.println(infoAndStatsMessage);
-        System.out.println("***********************************************************");
-        System.out.println("\n");
         channel.shutdown();
     }
 

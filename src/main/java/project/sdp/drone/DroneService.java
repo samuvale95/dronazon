@@ -78,7 +78,6 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
             @Override
             public void onCompleted() {
-                System.out.println("Delivery sent to Next node");
                 channel.shutdown();
             }
         });
@@ -86,8 +85,10 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
     @Override
     public void sendInfoAfterDelivery(InsertMessage.InfoAndStatsRequest request, StreamObserver<InsertMessage.InfoAndStatsResponse> responseObserver) {
-        System.out.println("Message STATS arrived to next drone");
+        System.out.println("Message STATS arrived  from previous drone");
         if(droneProcess.getDrone().getId() == request.getDroneTarget()){
+            System.out.println("PRINT MESSAGE");
+            System.out.println(request);
             droneProcess.getMasterProcess().getInfoAndStatsQueue().add(
                     new InfoAndStats(request.getDeliveryTimeStamp(),
                             new Point(request.getNewPosition().getX(),
@@ -120,7 +121,5 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 channel.shutdown();
             }
         });
-        responseObserver.onNext(InsertMessage.InfoAndStatsResponse.newBuilder().build());
-        responseObserver.onCompleted();
     }
 }

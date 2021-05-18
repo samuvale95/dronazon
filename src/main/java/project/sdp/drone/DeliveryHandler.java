@@ -4,6 +4,7 @@ import com.example.grpc.DroneServiceGrpc;
 import com.example.grpc.InsertMessage;
 import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
+import javafx.util.Pair;
 import project.sdp.dronazon.Delivery;
 import project.sdp.server.beans.Drone;
 import java.util.ArrayList;
@@ -19,44 +20,42 @@ public class DeliveryHandler extends Thread{
     }
 
     private Drone getDeliveryDrone(Delivery delivery) {
-        ArrayList<Drone> listDrone = droneProcess.getDronesList();
-        ArrayList<Drone> possibleDrones = new ArrayList<>();
+        synchronized (droneProcess.getDronesList()) {
+            ArrayList<Drone> listDrone = droneProcess.getDronesList();
+            ArrayList<Drone> possibleDrones = new ArrayList<>();
 
+            for (Drone d: listDrone) {
+                if (!d.getCommittedToDelivery())
+                    possibleDrones.add(d);
+            }
 
-        listDrone.forEach(d -> {
-            if(!d.getCommittedToDelivery())
-                possibleDrones.add(d);
-        });
+            if (possibleDrones.size() == 0) {
+                return null;
+            }
 
-        if(possibleDrones.size() == 0){ return null; }
+            Optional<Pair<Drone, Double>> res = possibleDrones.stream().map(drone -> new Pair<>(drone, drone.getPosition().distance(delivery.getTakePoint()))).reduce((d1, d2) -> {
+                if (d1.getValue() < d2.getValue()) return d1;
+                else if (d1.getValue() > d2.getValue()) return d2;
+                else if (d1.getKey().getId() > d2.getKey().getId()) return d1;
+                else return d2;
+            });
 
-        Optional<Drone> res = possibleDrones.stream().min((drone1, drone2) ->{
-            double distanceDrone1 = drone1.getPosition().distance(delivery.getTakePoint())*drone1.getBattery();
-            double distanceDrone2 = drone2.getPosition().distance(delivery.getTakePoint())*drone2.getBattery();
+            Drone result = res.orElse(null).getKey();
 
+            synchronized (Objects.requireNonNull(result)) {
+                result.setCommittedToDelivery(true);
+            }
             System.out.println("\n");
-            System.out.println("************* CALCULATE DISTANCE *****************");
-            System.out.println("Distance drone " + drone1 + " " + distanceDrone1);
-            System.out.println("Distance drone " + drone2 + " " + distanceDrone2);
-            System.out.println("**************************************************");
-
-            if(distanceDrone1 < distanceDrone2) return -1;
-            else if(distanceDrone1 > distanceDrone2) return 1;
-            else return Integer.compare(drone2.getId(), drone1.getId());
-        });
-
-        Drone result = res.orElse(null);
-
-        synchronized (Objects.requireNonNull(result)) {
-            result.setCommittedToDelivery(true);
+            System.out.println("Next Delivery Drone: " + result);
+            System.out.println("List Drone: ");
+            System.out.println(listDrone);
+            System.out.println("Possible Drone: ");
+            for (Drone drone : possibleDrones) {
+                System.out.println(new Pair<>(drone, drone.getPosition().distance(delivery.getTakePoint())));
+            }
+            System.out.println("\n");
+            return result;
         }
-        System.out.println("\n");
-        System.out.println("********* LOG **********");
-        System.out.println(droneProcess.getDronesList());
-        System.out.println("Next Delivery Drone: " + result);
-        System.out.println("******* END LOG **********");
-        System.out.println("\n");
-        return result;
     }
 
     @Override
