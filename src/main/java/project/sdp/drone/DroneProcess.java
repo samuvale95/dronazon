@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Scanner;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -65,9 +67,35 @@ public class DroneProcess {
         this.nextDrone = new Drone(id, "localhost", port);
     }
 
-    public Boolean isMaster(){ return this.master; }
-
     public void setNextDrone(Drone nextDrone) { this.nextDrone = nextDrone; }
+
+    private void newNextNode(){
+        ArrayList<Drone> list = new ArrayList<>(getDronesList());
+
+        int start = 0, end = list.size() - 1;
+
+        int ans = -1;
+        while (start <= end) {
+            int mid = (start + end) / 2;
+
+            // Move to right side if target is
+            // greater.
+            if (list.get(mid).getId() <= id) {
+                start = mid + 1;
+            }
+
+            // Move left side.
+            else {
+                ans = mid;
+                end = mid - 1;
+            }
+        }
+        if(ans==-1)
+            System.out.println(list.get(0));
+        else
+            System.out.println(list.get(ans));
+
+    }
 
     public Drone getMasterDrone(){return this.masterDrone;}
 
@@ -89,6 +117,7 @@ public class DroneProcess {
             Drone d = new Drone(drone.getId(), drone.getIp(), drone.getPort());
             d.setPosition(new Point(position.getX(), position.getY()));
             dronesList.add(d);
+            Collections.sort(dronesList.getDrones());
         }
     }
 
@@ -107,6 +136,7 @@ public class DroneProcess {
         Pair pair = gson.fromJson(json, Pair.class);
 
         this.dronesList = pair.getListDrone();
+        Collections.sort(dronesList.getDrones());
         this.position = pair.getPosition();
     }
 
@@ -125,7 +155,8 @@ public class DroneProcess {
             return;
         }
 
-        Drone drone = dronesList.getDrones().get(0);
+
+        Drone drone = getFuturePreviousNode();
         System.out.println("Try to communicate with: ");
         System.out.println(drone);
         ManagedChannel channel = getChannel(drone);
@@ -147,6 +178,31 @@ public class DroneProcess {
         InsertMessage.Position positionMessage = InsertMessage.Position.newBuilder().setX((int) position.getX()).setY((int) position.getY()).build();
         blockingStub.sendPosition(InsertMessage.PositionRequest.newBuilder().setDrone(callerDrone).setPosition(positionMessage).build());
         channel.shutdown();
+    }
+
+    private Drone getFuturePreviousNode() {
+        ArrayList<Drone> list = new ArrayList<>(getDronesList());
+
+        int start = 0, end = list.size()-1;
+
+        int ans = -1;
+        while (start <= end) {
+            int mid = (start + end) / 2;
+
+            if (list.get(mid).getId() >= id) {
+                end = mid - 1;
+            }
+
+            else {
+                ans = mid;
+                start = mid + 1;
+            }
+        }
+
+        if(ans==-1)
+            return list.get(list.size()-1);
+        else
+            return list.get(ans);
     }
 
     public void setMaster(Boolean state){ this.master = state; }
@@ -228,9 +284,16 @@ public class DroneProcess {
 
         final ScheduledExecutorService e = Executors.newScheduledThreadPool(1);
         e.scheduleAtFixedRate(() -> {
-            System.out.println("\n");
-            System.out.println("Number of delivery: " + deliveryCount);
-            System.out.println("\n");
+            try {
+                System.out.println("\n");
+                System.out.println("Number of delivery: " + deliveryCount);
+                System.out.println(dronesList.getDrones().indexOf(new Drone(this.id, "localhost", this.port)));
+                newNextNode();
+                System.out.println("\n");
+            }
+            catch(Exception err){
+                System.out.println(err);
+            }
         }, 0, 10*1000, TimeUnit.MILLISECONDS);
 
         while (true){}

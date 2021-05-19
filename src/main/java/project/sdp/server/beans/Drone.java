@@ -5,9 +5,10 @@ import org.codehaus.jackson.annotate.JsonIgnore;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import java.awt.*;
+import java.util.Objects;
 
 @XmlRootElement
-public class Drone{
+public class Drone implements Comparable<Drone> {
     private int id;
     private String ip;
     private int port;
@@ -84,6 +85,24 @@ public class Drone{
 
     public void setPosition(Point position) {
         this.position = position;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Drone drone = (Drone) o;
+        return id == drone.id;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
+
+    @Override
+    public int compareTo(Drone o) {
+        return id-o.getId();
     }
 }
 
