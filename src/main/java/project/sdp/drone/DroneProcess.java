@@ -66,7 +66,7 @@ public class DroneProcess {
 
     public void setNextDrone(Drone nextDrone) { this.nextDrone = nextDrone; }
 
-    private void newNextNode(){
+    public void newNextNode(){
         ArrayList<Drone> list = new ArrayList<>(getDronesList());
 
         int start = 0, end = list.size() - 1;
@@ -170,11 +170,30 @@ public class DroneProcess {
         nextDrone = new Drone(droneNext.getId(),droneNext.getIp(), droneNext.getPort());
         masterDrone = new Drone(droneMaster.getId(), droneMaster.getIp(), droneMaster.getPort());
 
-        channel = getChannel(nextDrone);
-        blockingStub = DroneServiceGrpc.newBlockingStub(channel);
+        ManagedChannel channel1 = getChannel(nextDrone);
+        DroneServiceStub stub = DroneServiceGrpc.newStub(channel1);
         InsertMessage.Position positionMessage = InsertMessage.Position.newBuilder().setX((int) position.getX()).setY((int) position.getY()).build();
-        blockingStub.sendPosition(InsertMessage.PositionRequest.newBuilder().setDrone(callerDrone).setPosition(positionMessage).build());
-        channel.shutdown();
+        stub.sendPosition(InsertMessage.PositionRequest.newBuilder().setDrone(callerDrone).setPosition(positionMessage).build(), new StreamObserver<InsertMessage.PositionResponse>() {
+            @Override
+            public void onNext(InsertMessage.PositionResponse value) {
+
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
+                    System.err.println("ERROR on send infoAfterDelivery");
+                    recoverFromNodeFailure(getNextDrone());
+                    System.err.println("new next Drone: " + getNextDrone());
+                }
+            }
+
+            @Override
+            public void onCompleted() {
+                channel1.shutdown();
+            }
+        });
+        channel1.awaitTermination(1, TimeUnit.MINUTES);
     }
 
     private Drone getFuturePreviousNode() {
@@ -262,8 +281,11 @@ public class DroneProcess {
 
             @Override
             public void onError(Throwable t) {
-                if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode())
+                if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
                     System.err.println("ERROR on send infoAfterDelivery");
+                    recoverFromNodeFailure(getNextDrone());
+                    System.err.println("new next Drone: " + getNextDrone());
+                }
             }
 
             @Override
@@ -273,6 +295,11 @@ public class DroneProcess {
         });
 
         channel.awaitTermination(1, TimeUnit.MINUTES);
+    }
+
+    public void recoverFromNodeFailure(Drone drone) {
+        getDronesList().remove(drone);
+        newNextNode();
     }
 
     public String getBroker() {
@@ -317,7 +344,7 @@ public class DroneProcess {
         if(master) masterProcess.shutdown();
 
         Client client = Client.create();
-        WebResource webResource = client.resource(URI_AdmServer + "/dronazon/drone/remove"+id);
+        WebResource webResource = client.resource(URI_AdmServer + "/dronazon/drone/remove/"+id);
         ClientResponse clientResponse = webResource.type("application/json").delete(ClientResponse.class);
         if(clientResponse.getStatus() == 200)
             System.out.println("Drone Removed");

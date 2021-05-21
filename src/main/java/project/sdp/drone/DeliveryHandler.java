@@ -3,6 +3,8 @@ package project.sdp.drone;
 import com.example.grpc.DroneServiceGrpc;
 import com.example.grpc.InsertMessage;
 import io.grpc.ManagedChannel;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import javafx.util.Pair;
 import project.sdp.dronazon.Delivery;
@@ -115,7 +117,13 @@ public class DeliveryHandler extends Thread{
                 public void onNext(InsertMessage.DeliveryResponse value) {}
 
                 @Override
-                public void onError(Throwable t) {}
+                public void onError(Throwable t) {
+                    if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
+                        System.err.println("ERROR on send infoAfterDelivery");
+                        droneProcess.recoverFromNodeFailure(droneProcess.getNextDrone());
+                        System.err.println("new next Drone: " + droneProcess.getNextDrone());
+                    }
+                }
 
                 @Override
                 public void onCompleted() {

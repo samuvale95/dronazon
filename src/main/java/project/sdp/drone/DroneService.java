@@ -4,11 +4,13 @@ import com.example.grpc.DroneServiceGrpc;
 import com.example.grpc.InsertMessage;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import project.sdp.server.beans.Drone;
 
 import java.awt.*;
-import java.util.Currency;
+import java.util.concurrent.TimeUnit;
 
 public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
@@ -47,11 +49,36 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
         }
 
         droneProcess.addDronePosition(drone, position);
-        ManagedChannel channel = droneProcess.getChannel(droneProcess.getNextDrone());
-        DroneServiceGrpc.DroneServiceBlockingStub stub = DroneServiceGrpc.newBlockingStub(channel);
-        stub.sendPosition(request);
-        channel.shutdown();
+        Context.current().fork().run(() -> {
+            ManagedChannel channel = droneProcess.getChannel(droneProcess.getNextDrone());
+            DroneServiceGrpc.DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
+            stub.sendPosition(request, new StreamObserver<InsertMessage.PositionResponse>() {
+                @Override
+                public void onNext(InsertMessage.PositionResponse value) {
 
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
+                        System.err.println("ERROR on send infoAfterDelivery");
+                        droneProcess.recoverFromNodeFailure(droneProcess.getNextDrone());
+                        System.err.println("ERROR on send infoAfterDelivery");
+                        System.err.println("new next Drone: " + droneProcess.getNextDrone());
+                    }
+                }
+
+                @Override
+                public void onCompleted() {
+                    channel.shutdown();
+                }
+            });
+            try {
+                channel.awaitTermination(1, TimeUnit.MINUTES);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
         responseObserver.onNext(InsertMessage.PositionResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
@@ -81,13 +108,25 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 public void onNext(InsertMessage.DeliveryResponse value) {}
 
                 @Override
-                public void onError(Throwable t) {}
+                public void onError(Throwable t) {
+                    if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
+                        System.err.println("ERROR on send infoAfterDelivery");
+                        droneProcess.recoverFromNodeFailure(droneProcess.getNextDrone());
+                        System.err.println("ERROR on send infoAfterDelivery");
+                        System.err.println("new next Drone: " + droneProcess.getNextDrone());
+                    }
+                }
 
                 @Override
                 public void onCompleted() {
                     channel.shutdown();
                 }
             });
+            try {
+                channel.awaitTermination(1, TimeUnit.MINUTES);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         });
         responseObserver.onNext(InsertMessage.DeliveryResponse.newBuilder().build());
         responseObserver.onCompleted();
@@ -124,7 +163,14 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 public void onNext(InsertMessage.InfoAndStatsResponse value) {}
 
                 @Override
-                public void onError(Throwable t) {}
+                public void onError(Throwable t) {
+                    if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
+                        System.err.println("ERROR on send infoAfterDelivery");
+                        droneProcess.recoverFromNodeFailure(droneProcess.getNextDrone());
+                        System.err.println("ERROR on send infoAfterDelivery");
+                        System.err.println("new next Drone: " + droneProcess.getNextDrone());
+                    }
+                }
 
                 @Override
                 public void onCompleted() {
@@ -132,6 +178,11 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                     channel.shutdown();
                 }
             });
+            try {
+                channel.awaitTermination(1, TimeUnit.MINUTES);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         });
         responseObserver.onNext(InsertMessage.InfoAndStatsResponse.newBuilder().build());
         responseObserver.onCompleted();
