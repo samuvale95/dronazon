@@ -90,9 +90,9 @@ public class DroneProcess {
             }
         }
         if(ans==-1)
-            System.out.println(list.get(0));
+            this.nextDrone = list.get(0);
         else
-            System.out.println(list.get(ans));
+            this.nextDrone = list.get(ans);
 
     }
 
@@ -286,7 +286,7 @@ public class DroneProcess {
             try {
                 System.out.println("\n");
                 System.out.println("Number of delivery: " + deliveryCount);
-                System.out.println(dronesList.getDrones().indexOf(new Drone(this.id, "localhost", this.port)));
+                System.out.println("Next drone: " + nextDrone);
                 newNextNode();
                 System.out.println("\n");
             }
@@ -302,6 +302,12 @@ public class DroneProcess {
         }
 
         if(master) masterProcess.shutdown();
+
+        Client client = Client.create();
+        WebResource webResource = client.resource(URI_AdmServer + "/dronazon/drone/remove"+id);
+        ClientResponse clientResponse = webResource.type("application/json").delete(ClientResponse.class);
+        if(clientResponse.getStatus() == 200)
+            System.out.println("Drone Removed");
         System.exit(0);
     }
 
