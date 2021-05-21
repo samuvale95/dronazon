@@ -7,10 +7,8 @@ import com.google.gson.Gson;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
-import io.grpc.Server;
-import io.grpc.ServerBuilder;
+import io.grpc.*;
+import io.grpc.stub.StreamObserver;
 import org.eclipse.paho.client.mqttv3.*;
 import project.sdp.server.beans.Drone;
 import project.sdp.server.beans.ListDrone;
@@ -145,7 +143,7 @@ public class DroneProcess {
 
     public void setBroker(String broker){ this.broker = broker; }
 
-    private void insertIntoRing() throws MqttException {
+    private void insertIntoRing() throws MqttException, InterruptedException {
         if(dronesList.getDrones().size() == 1){
             System.out.println("I'm Drone Master");
             this.masterDrone = new Drone(id, "localhost", port);
@@ -165,7 +163,7 @@ public class DroneProcess {
         InsertMessage.InsertRingRequest insertMessage = InsertMessage.InsertRingRequest.newBuilder().setCallerDrone(callerDrone).build();
 
         InsertMessage.InsertRingResponse insertRingResponse = blockingStub.insertIntoRing(insertMessage);
-        channel.shutdown();
+        channel.shutdown().awaitTermination(1, TimeUnit.MINUTES);
 
         InsertMessage.Drone droneNext = insertRingResponse.getNextDrone();
         InsertMessage.Drone droneMaster = insertRingResponse.getMasterDrone();
@@ -208,7 +206,7 @@ public class DroneProcess {
 
     public Master getMasterProcess() { return this.masterProcess; }
 
-    public void makeDelivery(Delivery delivery) {
+    public void makeDelivery(Delivery delivery) throws InterruptedException {
         System.out.println("****+ Making a delivery *******");
         try {
             Thread.sleep(5000);
@@ -222,8 +220,6 @@ public class DroneProcess {
         System.out.println("******** Delivery End *********");
 
         System.out.println("\n");
-        final ManagedChannel channel = getChannel(nextDrone);
-        DroneServiceBlockingStub stub = DroneServiceGrpc.newBlockingStub(channel);
 
         InsertMessage.InfoAndStatsRequest infoAndStatsMessage =
                 InsertMessage.InfoAndStatsRequest
@@ -255,11 +251,28 @@ public class DroneProcess {
                             infoAndStatsMessage.getDeliveryNumber()
                     )
             );
-            channel.shutdown();
             return;
         }
-        stub.sendInfoAfterDelivery(infoAndStatsMessage);
-        channel.shutdown();
+
+        final ManagedChannel channel = getChannel(nextDrone);
+        DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
+        stub.sendInfoAfterDelivery(infoAndStatsMessage, new StreamObserver<InsertMessage.InfoAndStatsResponse>() {
+            @Override
+            public void onNext(InsertMessage.InfoAndStatsResponse value) {}
+
+            @Override
+            public void onError(Throwable t) {
+                if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode())
+                    System.err.println("ERROR on send infoAfterDelivery");
+            }
+
+            @Override
+            public void onCompleted() {
+                channel.shutdown();
+            }
+        });
+
+        channel.awaitTermination(1, TimeUnit.MINUTES);
     }
 
     public String getBroker() {
@@ -268,7 +281,7 @@ public class DroneProcess {
 
     public String getAdministratorServer(){ return this.URI_AdmServer; }
 
-    public void start() throws IOException, MqttException {
+    public void start() throws IOException, MqttException, InterruptedException {
         registerToServer();
 
         //Start gRPC server
@@ -311,7 +324,7 @@ public class DroneProcess {
         System.exit(0);
     }
 
-    public static void main(String[] args) throws IOException, MqttException {
+    public static void main(String[] args) throws IOException, MqttException, InterruptedException {
         Scanner scanner = new Scanner(System.in);
 
         System.out.print("Insert a integer id of drone: ");

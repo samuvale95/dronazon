@@ -63,7 +63,7 @@ public class Dronazon extends Thread{
                 message.setQos(qos);
                 client.publish(topic, message);
 
-                Thread.sleep(10*1000);
+                Thread.sleep(5*1000);
             } catch (InterruptedException | MqttException e) {
                 e.printStackTrace();
             }

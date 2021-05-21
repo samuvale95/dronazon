@@ -10,6 +10,7 @@ import project.sdp.server.beans.Drone;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 public class DeliveryHandler extends Thread{
 
@@ -122,6 +123,11 @@ public class DeliveryHandler extends Thread{
                     channel.shutdown();
                 }
             });
+            try {
+                channel.awaitTermination(1, TimeUnit.MINUTES);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
     }
 }
