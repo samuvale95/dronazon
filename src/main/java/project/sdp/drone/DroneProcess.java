@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Scanner;
 import java.util.concurrent.Executors;
@@ -146,7 +145,7 @@ public class DroneProcess {
 
     public void setBroker(String broker){ this.broker = broker; }
 
-    private void insertIntoRing() {
+    private void insertIntoRing() throws MqttException {
         if(dronesList.getDrones().size() == 1){
             System.out.println("I'm Drone Master");
             this.masterDrone = new Drone(id, "localhost", port);
@@ -296,7 +295,14 @@ public class DroneProcess {
             }
         }, 0, 10*1000, TimeUnit.MILLISECONDS);
 
-        while (true){}
+        Scanner sc = new Scanner(System.in);
+        System.out.println("Write quit to exit");
+        while (!sc.nextLine().equals("quit") && battery > 15){
+            System.out.println("Write quit to exit");
+        }
+
+        if(master) masterProcess.shutdown();
+        System.exit(0);
     }
 
     public static void main(String[] args) throws IOException, MqttException {
@@ -306,7 +312,6 @@ public class DroneProcess {
         int id = scanner.nextInt();
         System.out.println("Insert a communication port for a drone: ");
         int port = scanner.nextInt();
-        scanner.close();
 
         DroneProcess drone = new DroneProcess(id, port, "http://localhost:1337");
         drone.setBroker("tcp://localhost:1883");

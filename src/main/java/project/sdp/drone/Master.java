@@ -14,40 +14,21 @@ public class Master extends Thread{
     private final Buffer<project.sdp.dronazon.Delivery> deliveryQueue;
     private final Buffer<InfoAndStats> infoAndStatsQueue;
     private final ArrayList<InfoAndStats> globalStats;
+    private final MqttClient client;
 
 
 
-    public Master(DroneProcess droneProcess){
+    public Master(DroneProcess droneProcess) throws MqttException {
         this.droneProcess = droneProcess;
         this.deliveryQueue = new Buffer<>();
         this.infoAndStatsQueue = new Buffer<>();
         this.globalStats = new ArrayList<>();
-    }
 
-    public Buffer<project.sdp.dronazon.Delivery> getDeliveryQueue() { return this.deliveryQueue; }
-    public Buffer<InfoAndStats> getInfoAndStatsQueue(){ return this.infoAndStatsQueue; }
-    public ArrayList<InfoAndStats> getGlobalStats() {
-            return globalStats;
-    }
+        this.client = new MqttClient(droneProcess.getBroker(), MqttClient.generateClientId());
+        MqttConnectOptions options = new MqttConnectOptions();
+        options.setCleanSession(true);
+        client.connect(options);
 
-    @Override
-    public void run() {
-        droneProcess.setMaster(true);
-
-        DeliveryHandler deliveryHandler = new DeliveryHandler(droneProcess);
-        deliveryHandler.start();
-
-        MqttClient client = null;
-        try {
-            client = new MqttClient(droneProcess.getBroker(), MqttClient.generateClientId());
-            MqttConnectOptions options = new MqttConnectOptions();
-            options.setCleanSession(true);
-            client.connect(options);
-        } catch (MqttException e) {
-            e.printStackTrace();
-        }
-
-        assert client != null;
         client.setCallback(new MqttCallback() {
             @Override
             public void connectionLost(Throwable cause) {}
@@ -65,13 +46,23 @@ public class Master extends Thread{
             @Override
             public void deliveryComplete(IMqttDeliveryToken token) {}
         });
+        client.subscribe(DELIVERY_TOPIC);
+    }
 
-        try {
-            client.subscribe(DELIVERY_TOPIC);
-        } catch (MqttException e) {
-            e.printStackTrace();
-        }
+    public Buffer<project.sdp.dronazon.Delivery> getDeliveryQueue() { return this.deliveryQueue; }
+    public Buffer<InfoAndStats> getInfoAndStatsQueue(){ return this.infoAndStatsQueue; }
+    public ArrayList<InfoAndStats> getGlobalStats() {
+            return globalStats;
+    }
+    public void shutdown() throws MqttException {
+        client.disconnect();
+        client.close();
+    }
 
+    @Override
+    public void run() {
+        droneProcess.setMaster(true);
+        new DeliveryHandler(droneProcess).start();
         new InfoAndStatsHandler(droneProcess).start();
         new StatisticsSender(droneProcess).start();
     }
