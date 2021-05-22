@@ -14,7 +14,7 @@ public class Drone implements Comparable<Drone> {
     private int port;
     @JsonIgnore
     private Point position;
-    private Boolean committedToDelivery;
+    private boolean committedToDelivery;
     private int battery;
 
     public Drone(int id, String ip, int port){
@@ -47,7 +47,7 @@ public class Drone implements Comparable<Drone> {
         this.ip = ip;
     }
 
-    public Boolean getCommittedToDelivery() {
+    public boolean getCommittedToDelivery() {
         return committedToDelivery;
     }
 

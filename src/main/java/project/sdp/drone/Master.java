@@ -3,8 +3,11 @@ package project.sdp.drone;
 import com.google.gson.Gson;
 import org.eclipse.paho.client.mqttv3.*;
 import project.sdp.dronazon.RandomDelivery;
+import project.sdp.server.beans.Drone;
 
 import java.util.ArrayList;
+import java.util.Optional;
+import java.util.function.Function;
 
 
 public class Master extends Thread{
@@ -57,6 +60,8 @@ public class Master extends Thread{
     public void shutdown() throws MqttException {
         client.disconnect();
         client.close();
+
+        while(droneProcess.getDronesList().stream().map(Drone::getCommittedToDelivery).reduce(false, (d1, d2) -> d1||d2 ));
     }
 
     @Override

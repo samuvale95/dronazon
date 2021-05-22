@@ -68,7 +68,6 @@ public class DroneProcess {
         this.quit = new Quit();
     }
 
-
     public boolean isParticipantToElection() {
         return participantToElection;
     }
