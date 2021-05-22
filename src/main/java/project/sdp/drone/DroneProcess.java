@@ -55,6 +55,7 @@ public class DroneProcess {
     private int deliveryCount = 0;
     private double distance = 0;
     private boolean participantToElection;
+    private volatile Quit quit;
 
     public DroneProcess(int id, int port, String URI_AdmServer){
         this.id = id;
@@ -64,6 +65,7 @@ public class DroneProcess {
         this.master = false;
         this.nextDrone = new Drone(id, "localhost", port);
         this.participantToElection = false;
+        this.quit = new Quit();
     }
 
 
@@ -323,49 +325,6 @@ public class DroneProcess {
 
     public String getAdministratorServer(){ return this.URI_AdmServer; }
 
-    public void start() throws IOException, MqttException, InterruptedException {
-        registerToServer();
-
-        //Start gRPC server
-        Server server = ServerBuilder.forPort(port).addService(new DroneService(this)).build();
-        server.start();
-
-        insertIntoRing();
-
-        System.out.println("Drone started:");
-        System.out.println("ID: " + id);
-        System.out.println("Position: " + position);
-
-        final ScheduledExecutorService e = Executors.newScheduledThreadPool(1);
-        e.scheduleAtFixedRate(() -> {
-            try {
-                System.out.println("\n");
-                System.out.println("Number of delivery: " + deliveryCount);
-                System.out.println("Next drone: " + nextDrone);
-                newNextNode();
-                System.out.println("\n");
-            }
-            catch(Exception err){
-                System.out.println(err);
-            }
-        }, 0, 10*1000, TimeUnit.MILLISECONDS);
-
-        Scanner sc = new Scanner(System.in);
-        System.out.println("Write quit to exit");
-        while (!sc.nextLine().equals("quit") && battery > 15){
-            System.out.println("Write quit to exit");
-        }
-
-        if(master) masterProcess.shutdown();
-
-        Client client = Client.create();
-        WebResource webResource = client.resource(URI_AdmServer + "/dronazon/drone/remove/"+id);
-        ClientResponse clientResponse = webResource.type("application/json").delete(ClientResponse.class);
-        if(clientResponse.getStatus() == 200)
-            System.out.println("Drone Removed");
-        System.exit(0);
-    }
-
     public void setMasterProcess(Master master) {
         this.masterProcess = master;
     }
@@ -409,6 +368,60 @@ public class DroneProcess {
         });
 
         channel.awaitTermination(3, TimeUnit.SECONDS);
+    }
+
+    public void start() throws IOException, MqttException, InterruptedException {
+        registerToServer();
+
+        //Start gRPC server
+        Server server = ServerBuilder.forPort(port).addService(new DroneService(this)).build();
+        server.start();
+
+        insertIntoRing();
+
+        System.out.println("Drone started:");
+        System.out.println("ID: " + id);
+        System.out.println("Position: " + position);
+
+        final ScheduledExecutorService e = Executors.newScheduledThreadPool(1);
+        e.scheduleAtFixedRate(() -> {
+            try {
+                System.out.println("\n");
+                System.out.println("Number of delivery: " + deliveryCount);
+                System.out.println("Next drone: " + nextDrone);
+                newNextNode();
+                System.out.println("\n");
+            }
+            catch(Exception err){
+                System.out.println(err);
+            }
+        }, 0, 10*1000, TimeUnit.MILLISECONDS);
+
+
+        new Thread(new Runnable() {
+            final Quit quit = DroneProcess.this.quit;
+
+            @Override
+            public void run() {
+                Scanner sc = new Scanner(System.in);
+                System.out.println("Write quit to exit");
+                while (!sc.nextLine().equals("quit")){
+                    System.out.println("Write quit to exit");
+                }
+                quit.setQuit(true);
+            }
+        }).start();
+
+        while (!this.quit.isQuit() && battery > 15);
+
+        if(master) masterProcess.shutdown();
+
+        Client client = Client.create();
+        WebResource webResource = client.resource(URI_AdmServer + "/dronazon/drone/remove/"+id);
+        ClientResponse clientResponse = webResource.type("application/json").delete(ClientResponse.class);
+        if(clientResponse.getStatus() == 200)
+            System.out.println("Drone Removed");
+        System.exit(0);
     }
 
     public static void main(String[] args) throws IOException, MqttException, InterruptedException {
