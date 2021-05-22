@@ -53,9 +53,18 @@ message InfoAndStatsRequest{
 
 message InfoAndStatsResponse{}
 
+message ElectionRequest{
+  optional int32 id = 1;
+  optional int32 battery = 2;
+  optional string type = 3;
+}
+
+message ElectionResponse{}
+
 service DroneService{
   rpc insertIntoRing(InsertRingRequest) returns(InsertRingResponse);
   rpc sendPosition(PositionRequest) returns(PositionResponse);
   rpc sendDelivery(DeliveryRequest) returns(DeliveryResponse);
   rpc sendInfoAfterDelivery(InfoAndStatsRequest) returns(InfoAndStatsResponse);
+  rpc election(ElectionRequest) returns(ElectionResponse);
 }

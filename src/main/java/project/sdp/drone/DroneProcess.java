@@ -47,13 +47,14 @@ public class DroneProcess {
     private int battery;
     private Point position;
     private ListDrone dronesList;
-    private Boolean master;
+    private boolean master;
     private Drone masterDrone;
     private Drone nextDrone;
     private String broker;
     private Master masterProcess;
     private int deliveryCount = 0;
     private double distance = 0;
+    private boolean participantToElection;
 
     public DroneProcess(int id, int port, String URI_AdmServer){
         this.id = id;
@@ -62,6 +63,16 @@ public class DroneProcess {
         this.battery = 100;
         this.master = false;
         this.nextDrone = new Drone(id, "localhost", port);
+        this.participantToElection = false;
+    }
+
+
+    public boolean isParticipantToElection() {
+        return participantToElection;
+    }
+
+    public void setParticipantToElection(boolean participantToElection) {
+        this.participantToElection = participantToElection;
     }
 
     public void setNextDrone(Drone nextDrone) { this.nextDrone = nextDrone; }
@@ -181,11 +192,7 @@ public class DroneProcess {
 
             @Override
             public void onError(Throwable t) {
-                if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
-                    System.err.println("ERROR on send infoAfterDelivery");
-                    recoverFromNodeFailure(getNextDrone());
-                    System.err.println("new next Drone: " + getNextDrone());
-                }
+                onFailNode(t);
             }
 
             @Override
@@ -193,7 +200,7 @@ public class DroneProcess {
                 channel1.shutdown();
             }
         });
-        channel1.awaitTermination(1, TimeUnit.MINUTES);
+        channel1.awaitTermination(3, TimeUnit.SECONDS);
     }
 
     private Drone getFuturePreviousNode() {
@@ -281,11 +288,7 @@ public class DroneProcess {
 
             @Override
             public void onError(Throwable t) {
-                if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
-                    System.err.println("ERROR on send infoAfterDelivery");
-                    recoverFromNodeFailure(getNextDrone());
-                    System.err.println("new next Drone: " + getNextDrone());
-                }
+                onFailNode(t);
             }
 
             @Override
@@ -294,10 +297,22 @@ public class DroneProcess {
             }
         });
 
-        channel.awaitTermination(1, TimeUnit.MINUTES);
+        channel.awaitTermination(3, TimeUnit.SECONDS);
     }
 
-    public void recoverFromNodeFailure(Drone drone) {
+    private void recoverFromNodeFailure(Drone drone) {
+        if(getNextDrone().equals(getMasterDrone())) {
+            System.err.println("START NEW ELECTION");
+            try {
+                getDronesList().remove(drone);
+                newNextNode();
+                startNewElection();
+                return;
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        System.err.println("Set new next node");
         getDronesList().remove(drone);
         newNextNode();
     }
@@ -349,6 +364,51 @@ public class DroneProcess {
         if(clientResponse.getStatus() == 200)
             System.out.println("Drone Removed");
         System.exit(0);
+    }
+
+    public void setMasterProcess(Master master) {
+        this.masterProcess = master;
+    }
+
+    public void setMasterNode(Drone drone) {
+        this.masterDrone = drone;
+    }
+
+    public void onFailNode(Throwable t) {
+        if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
+            System.err.println("ERROR on send infoAfterDelivery");
+            recoverFromNodeFailure(getNextDrone());
+            System.err.println("new next Drone: " + getNextDrone());
+        }
+    }
+
+    private void startNewElection() throws InterruptedException {
+        InsertMessage.ElectionRequest message = InsertMessage.ElectionRequest
+                .newBuilder()
+                .setId(id)
+                .setBattery(battery)
+                .setType("ELECTION")
+                .build();
+        final ManagedChannel channel = getChannel(nextDrone);
+        DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
+        stub.election(message, new StreamObserver<InsertMessage.ElectionResponse>() {
+            @Override
+            public void onNext(InsertMessage.ElectionResponse value) {
+
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                onFailNode(t);
+            }
+
+            @Override
+            public void onCompleted() {
+                channel.shutdown();
+            }
+        });
+
+        channel.awaitTermination(3, TimeUnit.SECONDS);
     }
 
     public static void main(String[] args) throws IOException, MqttException, InterruptedException {

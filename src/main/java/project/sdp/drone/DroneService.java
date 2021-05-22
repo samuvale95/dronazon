@@ -4,9 +4,8 @@ import com.example.grpc.DroneServiceGrpc;
 import com.example.grpc.InsertMessage;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
+import org.eclipse.paho.client.mqttv3.MqttException;
 import project.sdp.server.beans.Drone;
 
 import java.awt.*;
@@ -60,12 +59,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
                 @Override
                 public void onError(Throwable t) {
-                    if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
-                        System.err.println("ERROR on send infoAfterDelivery");
-                        droneProcess.recoverFromNodeFailure(droneProcess.getNextDrone());
-                        System.err.println("ERROR on send infoAfterDelivery");
-                        System.err.println("new next Drone: " + droneProcess.getNextDrone());
-                    }
+                    droneProcess.onFailNode(t);
                 }
 
                 @Override
@@ -74,7 +68,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 }
             });
             try {
-                channel.awaitTermination(1, TimeUnit.MINUTES);
+                channel.awaitTermination(3, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -109,12 +103,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
                 @Override
                 public void onError(Throwable t) {
-                    if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
-                        System.err.println("ERROR on send infoAfterDelivery");
-                        droneProcess.recoverFromNodeFailure(droneProcess.getNextDrone());
-                        System.err.println("ERROR on send infoAfterDelivery");
-                        System.err.println("new next Drone: " + droneProcess.getNextDrone());
-                    }
+                    droneProcess.onFailNode(t);
                 }
 
                 @Override
@@ -123,7 +112,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 }
             });
             try {
-                channel.awaitTermination(1, TimeUnit.MINUTES);
+                channel.awaitTermination(3, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -164,12 +153,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
                 @Override
                 public void onError(Throwable t) {
-                    if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
-                        System.err.println("ERROR on send infoAfterDelivery");
-                        droneProcess.recoverFromNodeFailure(droneProcess.getNextDrone());
-                        System.err.println("ERROR on send infoAfterDelivery");
-                        System.err.println("new next Drone: " + droneProcess.getNextDrone());
-                    }
+                    droneProcess.onFailNode(t);
                 }
 
                 @Override
@@ -179,12 +163,85 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 }
             });
             try {
-                channel.awaitTermination(1, TimeUnit.MINUTES);
+                channel.awaitTermination(3, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         });
         responseObserver.onNext(InsertMessage.InfoAndStatsResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void election(InsertMessage.ElectionRequest request, StreamObserver<InsertMessage.ElectionResponse> responseObserver) {
+        InsertMessage.ElectionRequest message;
+
+        if(request.getType().equals("ELECTION")) {
+            System.err.println("ELECTION IN ACTION");
+            if (request.getBattery() == droneProcess.getDrone().getBattery() && request.getId() == droneProcess.getDrone().getId()) {
+                message = InsertMessage.ElectionRequest
+                        .newBuilder()
+                        .setId(droneProcess.getDrone().getId())
+                        .setBattery(droneProcess.getDrone().getBattery())
+                        .setType("ELECTED")
+                        .build();
+                droneProcess.setParticipantToElection(false);
+            }else if (request.getBattery() > droneProcess.getDrone().getBattery() ||
+                    (request.getBattery() == droneProcess.getDrone().getBattery() && request.getId() > droneProcess.getDrone().getId())) {
+                System.err.println("FORWARD");
+                message = request;
+                droneProcess.setParticipantToElection(true);
+            }else{
+                System.err.println("FORWARD with new packet");
+                message = InsertMessage.ElectionRequest
+                        .newBuilder()
+                        .setId(droneProcess.getDrone().getId())
+                        .setBattery(droneProcess.getDrone().getBattery())
+                        .setType("ELECTION")
+                        .build();
+                droneProcess.setParticipantToElection(true);
+            }
+        }else{
+            if(request.getBattery() == droneProcess.getDrone().getBattery() && request.getId() == droneProcess.getDrone().getId()){
+                System.err.println("SET NEW MASTER");
+                droneProcess.setMaster(true);
+                droneProcess.setMasterNode(new Drone(droneProcess.getDrone().getId(), droneProcess.getDrone().getIp(), droneProcess.getDrone().getPort()));
+                try {
+                    droneProcess.setMasterProcess(new Master(droneProcess));
+                } catch (MqttException e) {
+                    e.printStackTrace();
+                }
+                droneProcess.getMasterProcess().start();
+                return;
+            }
+
+            message = request;
+            droneProcess.setParticipantToElection(false);
+        }
+
+        Context.current().fork().run(()-> {
+            ManagedChannel channel = droneProcess.getChannel(droneProcess.getNextDrone());
+            DroneServiceGrpc.DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
+            stub.election(message, new StreamObserver<InsertMessage.ElectionResponse>() {
+                @Override
+                public void onNext(InsertMessage.ElectionResponse value) { }
+
+                @Override
+                public void onError(Throwable t) {
+                    droneProcess.onFailNode(t);
+                }
+
+                @Override
+                public void onCompleted() { channel.shutdown(); }
+            });
+
+            try {
+                channel.awaitTermination(3, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+        responseObserver.onNext(InsertMessage.ElectionResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 }

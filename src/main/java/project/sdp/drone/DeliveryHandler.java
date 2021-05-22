@@ -118,11 +118,7 @@ public class DeliveryHandler extends Thread{
 
                 @Override
                 public void onError(Throwable t) {
-                    if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
-                        System.err.println("ERROR on send infoAfterDelivery");
-                        droneProcess.recoverFromNodeFailure(droneProcess.getNextDrone());
-                        System.err.println("new next Drone: " + droneProcess.getNextDrone());
-                    }
+                    droneProcess.onFailNode(t);
                 }
 
                 @Override
@@ -132,7 +128,7 @@ public class DeliveryHandler extends Thread{
                 }
             });
             try {
-                channel.awaitTermination(1, TimeUnit.MINUTES);
+                channel.awaitTermination(3, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
