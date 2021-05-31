@@ -143,7 +143,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             responseObserver.onCompleted();
             return;
         }
-
+        //TODO update position of drones in all nodes
         Context.current().fork().run(() -> {
             ManagedChannel channel = droneProcess.getChannel(droneProcess.getNextDrone());
             DroneServiceGrpc.DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
@@ -220,7 +220,11 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
         }
 
         Context.current().fork().run(()-> {
+            Drone master = droneProcess.getDrone(message.getId());
+            droneProcess.setMasterNode(master);
+
             ManagedChannel channel = droneProcess.getChannel(droneProcess.getNextDrone());
+
             DroneServiceGrpc.DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
             stub.election(message, new StreamObserver<InsertMessage.ElectionResponse>() {
                 @Override
@@ -235,6 +239,34 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 public void onCompleted() { channel.shutdown(); }
             });
 
+            Drone drone = droneProcess.getDrone();
+            InsertMessage.PositionRequest position = InsertMessage.PositionRequest
+                    .newBuilder()
+                    .setPosition(InsertMessage.Position
+                            .newBuilder()
+                            .setX((int) drone.getPosition().getX())
+                            .setY((int) drone.getPosition().getY())
+                            .build()
+                    )
+                    .setDrone(InsertMessage.Drone
+                            .newBuilder()
+                            .setId(drone.getId())
+                            .setPort(drone.getPort())
+                            .setIp(drone.getIp())
+                    )
+                    .build();
+
+            stub.sendPosition(position, new StreamObserver<InsertMessage.PositionResponse>() {
+                @Override
+                public void onNext(InsertMessage.PositionResponse value) { }
+
+                @Override
+                public void onError(Throwable t) { droneProcess.onFailNode(t); }
+
+                @Override
+                public void onCompleted() { }
+            });
+
             try {
                 channel.awaitTermination(3, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
@@ -242,6 +274,12 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             }
         });
         responseObserver.onNext(InsertMessage.ElectionResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void isAlive(InsertMessage.AliveMessage request, StreamObserver<InsertMessage.AliveMessage> responseObserver) {
+        responseObserver.onNext(request);
         responseObserver.onCompleted();
     }
 }

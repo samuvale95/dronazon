@@ -3,6 +3,7 @@ package project.sdp.drone;
 import com.example.grpc.DroneServiceGrpc;
 import com.example.grpc.DroneServiceGrpc.*;
 import com.example.grpc.InsertMessage;
+import com.google.common.net.InetAddresses;
 import com.google.gson.Gson;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
@@ -16,6 +17,10 @@ import project.sdp.server.beans.Pair;
 
 import java.awt.*;
 import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -44,7 +49,7 @@ public class DroneProcess {
     private final int id;
     private final int port;
     private final String URI_AdmServer;
-    private int battery;
+    private volatile int battery;
     private Point position;
     private ListDrone dronesList;
     private boolean master;
@@ -110,7 +115,21 @@ public class DroneProcess {
 
     public Drone getNextDrone() { return this.nextDrone; }
 
-    public Drone getDrone() { return new Drone(id, "localhost", port); }
+    public Drone getDrone() {
+        Drone t = new Drone(id, "localhost", port);
+        t.setPosition(position);
+        return t;
+    }
+
+    public Drone getDrone(int id) {
+        Drone res=null;
+        for( Drone drone : new ArrayList<>(getDronesList()))
+            if(drone.getId()==id) res = drone;
+
+        assert res != null;
+        return res;
+    }
+
 
     public ArrayList<Drone> getDronesList(){ return this.dronesList.getDrones(); }
 
@@ -302,18 +321,6 @@ public class DroneProcess {
     }
 
     private void recoverFromNodeFailure(Drone drone) {
-        if(getNextDrone().equals(getMasterDrone())) {
-            System.err.println("START NEW ELECTION");
-            try {
-                getDronesList().remove(drone);
-                newNextNode();
-                startNewElection();
-                return;
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        System.err.println("Set new next node");
         getDronesList().remove(drone);
         newNextNode();
     }
@@ -340,7 +347,7 @@ public class DroneProcess {
         }
     }
 
-    private void startNewElection() throws InterruptedException {
+    private void startNewElection() throws InterruptedException, MqttException {
         InsertMessage.ElectionRequest message = InsertMessage.ElectionRequest
                 .newBuilder()
                 .setId(id)
@@ -382,8 +389,7 @@ public class DroneProcess {
         System.out.println("ID: " + id);
         System.out.println("Position: " + position);
 
-        final ScheduledExecutorService e = Executors.newScheduledThreadPool(1);
-        e.scheduleAtFixedRate(() -> {
+        Executors.newScheduledThreadPool(1).scheduleAtFixedRate(() -> {
             try {
                 System.out.println("\n");
                 System.out.println("Number of delivery: " + deliveryCount);
@@ -410,6 +416,34 @@ public class DroneProcess {
                 quit.setQuit(true);
             }
         }).start();
+
+        Executors.newScheduledThreadPool(1).scheduleAtFixedRate(() -> {
+            System.err.println(getMasterDrone());
+            ManagedChannel channel = getChannel(getMasterDrone());
+            DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
+            stub.isAlive(InsertMessage.AliveMessage.newBuilder().build(), new StreamObserver<InsertMessage.AliveMessage>() {
+                @Override
+                public void onNext(InsertMessage.AliveMessage value) {}
+
+                @Override
+                public void onError(Throwable t) {
+                    onFailNode(t);
+                    try {
+                        startNewElection();
+                    } catch (InterruptedException | MqttException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                @Override
+                public void onCompleted() { channel.shutdown(); }
+            });
+            try {
+                channel.awaitTermination(3, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, 0, 7*1000, TimeUnit.MILLISECONDS);
 
         while (!this.quit.isQuit() && battery > 15);
 

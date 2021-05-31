@@ -61,10 +61,13 @@ message ElectionRequest{
 
 message ElectionResponse{}
 
+message AliveMessage{}
+
 service DroneService{
   rpc insertIntoRing(InsertRingRequest) returns(InsertRingResponse);
   rpc sendPosition(PositionRequest) returns(PositionResponse);
   rpc sendDelivery(DeliveryRequest) returns(DeliveryResponse);
   rpc sendInfoAfterDelivery(InfoAndStatsRequest) returns(InfoAndStatsResponse);
   rpc election(ElectionRequest) returns(ElectionResponse);
+  rpc isAlive(AliveMessage) returns(AliveMessage);
 }
