@@ -340,11 +340,19 @@ public class DroneProcess {
     }
 
     public void onFailNode(Throwable t) {
+        Drone failNode = getNextDrone();
         if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
             System.err.println("ERROR on send infoAfterDelivery");
-            recoverFromNodeFailure(getNextDrone());
+            recoverFromNodeFailure(failNode);
             System.err.println("new next Drone: " + getNextDrone());
         }
+
+        if(failNode.getId() == getMasterDrone().getId())
+            try {
+                startNewElection();
+            } catch (InterruptedException | MqttException e) {
+                e.printStackTrace();
+            }
     }
 
     private void startNewElection() throws InterruptedException, MqttException {
@@ -418,7 +426,7 @@ public class DroneProcess {
         }).start();
 
         Executors.newScheduledThreadPool(1).scheduleAtFixedRate(() -> {
-            System.err.println(getMasterDrone());
+            System.err.println(getNextDrone());
             ManagedChannel channel = getChannel(getMasterDrone());
             DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
             stub.isAlive(InsertMessage.AliveMessage.newBuilder().build(), new StreamObserver<InsertMessage.AliveMessage>() {
@@ -428,11 +436,6 @@ public class DroneProcess {
                 @Override
                 public void onError(Throwable t) {
                     onFailNode(t);
-                    try {
-                        startNewElection();
-                    } catch (InterruptedException | MqttException e) {
-                        e.printStackTrace();
-                    }
                 }
 
                 @Override
