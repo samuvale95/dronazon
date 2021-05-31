@@ -3,7 +3,6 @@ package project.sdp.drone;
 import com.example.grpc.DroneServiceGrpc;
 import com.example.grpc.DroneServiceGrpc.*;
 import com.example.grpc.InsertMessage;
-import com.google.common.net.InetAddresses;
 import com.google.gson.Gson;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
@@ -11,23 +10,20 @@ import com.sun.jersey.api.client.WebResource;
 import io.grpc.*;
 import io.grpc.stub.StreamObserver;
 import org.eclipse.paho.client.mqttv3.*;
+import project.sdp.sensor.Measurement;
+import project.sdp.sensor.PM10Simulator;
+import project.sdp.sensor.SensorBuffer;
 import project.sdp.server.beans.Drone;
 import project.sdp.server.beans.ListDrone;
 import project.sdp.server.beans.Pair;
-
 import java.awt.*;
 import java.io.IOException;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Scanner;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /*
@@ -61,6 +57,8 @@ public class DroneProcess {
     private double distance = 0;
     private boolean participantToElection;
     private volatile Quit quit;
+    private final ArrayList<Double> pm10means;
+
 
     public DroneProcess(int id, int port, String URI_AdmServer){
         this.id = id;
@@ -71,6 +69,7 @@ public class DroneProcess {
         this.nextDrone = new Drone(id, "localhost", port);
         this.participantToElection = false;
         this.quit = new Quit();
+        this.pm10means = new ArrayList<>();
     }
 
     public boolean isParticipantToElection() {
@@ -384,6 +383,16 @@ public class DroneProcess {
         channel.awaitTermination(3, TimeUnit.SECONDS);
     }
 
+    private void startPM10Sensor() {
+        SensorBuffer sensorBuffer = new SensorBuffer();
+        PM10Simulator sensor = new PM10Simulator(sensorBuffer);
+
+        new Thread(() -> {
+            while(true)
+                pm10means.add(sensorBuffer.readAllAndClean().stream().map(Measurement::getValue).reduce(0.0, Double::sum)/8.0);
+        });
+    }
+
     public void start() throws IOException, MqttException, InterruptedException {
         registerToServer();
 
@@ -392,6 +401,8 @@ public class DroneProcess {
         server.start();
 
         insertIntoRing();
+
+        startPM10Sensor();
 
         System.out.println("Drone started:");
         System.out.println("ID: " + id);
