@@ -45,7 +45,7 @@ message InfoAndStatsRequest{
   optional Position newPosition = 2;
   optional int32 battery = 3;
   optional double distanceRoutes = 4;
-  optional double airPollution = 5;
+  repeated double airPollution = 5;
   optional int32 callerDrone = 6;
   optional int32 droneTarget = 7;
   optional int32 deliveryNumber = 8;

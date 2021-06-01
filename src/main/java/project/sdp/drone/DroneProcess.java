@@ -10,7 +10,6 @@ import com.sun.jersey.api.client.WebResource;
 import io.grpc.*;
 import io.grpc.stub.StreamObserver;
 import org.eclipse.paho.client.mqttv3.*;
-import project.sdp.sensor.CallBack;
 import project.sdp.sensor.Measurement;
 import project.sdp.sensor.PM10Simulator;
 import project.sdp.sensor.SensorBuffer;
@@ -56,7 +55,6 @@ public class DroneProcess {
     private Master masterProcess;
     private int deliveryCount = 0;
     private double distance = 0;
-    private boolean participantToElection;
     private volatile Quit quit;
     private final ArrayList<Double> pm10means;
 
@@ -68,17 +66,8 @@ public class DroneProcess {
         this.battery = 100;
         this.master = false;
         this.nextDrone = new Drone(id, "localhost", port);
-        this.participantToElection = false;
         this.quit = new Quit();
         this.pm10means = new ArrayList<>();
-    }
-
-    public boolean isParticipantToElection() {
-        return participantToElection;
-    }
-
-    public void setParticipantToElection(boolean participantToElection) {
-        this.participantToElection = participantToElection;
     }
 
     public void setNextDrone(Drone nextDrone) { this.nextDrone = nextDrone; }
@@ -272,8 +261,7 @@ public class DroneProcess {
                 .newBuilder()
                 .setCallerDrone(id)
                 .setBattery(battery)
-                //TODO change double with array
-                .setAirPollution(0)
+                .addAllAirPollution(pm10means)
                 .setDistanceRoutes(distance)
                 .setNewPosition(InsertMessage.Position
                         .newBuilder()
@@ -293,7 +281,7 @@ public class DroneProcess {
                             ),
                             infoAndStatsMessage.getBattery(),
                             infoAndStatsMessage.getDistanceRoutes(),
-                            infoAndStatsMessage.getAirPollution(),
+                            infoAndStatsMessage.getAirPollutionList().stream().reduce(0.0, Double::sum)/(double) infoAndStatsMessage.getAirPollutionCount(),
                             infoAndStatsMessage.getCallerDrone(),
                             infoAndStatsMessage.getDeliveryNumber()
                     )
@@ -410,6 +398,7 @@ public class DroneProcess {
                 System.out.println("\n");
                 System.out.println("Number of delivery: " + deliveryCount);
                 System.out.println("Next drone: " + nextDrone);
+                System.out.println("Pollution: " + pm10means);
                 newNextNode();
                 System.out.println("\n");
             }
