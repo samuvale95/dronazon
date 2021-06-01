@@ -10,6 +10,7 @@ import com.sun.jersey.api.client.WebResource;
 import io.grpc.*;
 import io.grpc.stub.StreamObserver;
 import org.eclipse.paho.client.mqttv3.*;
+import project.sdp.sensor.CallBack;
 import project.sdp.sensor.Measurement;
 import project.sdp.sensor.PM10Simulator;
 import project.sdp.sensor.SensorBuffer;
@@ -271,6 +272,7 @@ public class DroneProcess {
                 .newBuilder()
                 .setCallerDrone(id)
                 .setBattery(battery)
+                //TODO change double with array
                 .setAirPollution(0)
                 .setDistanceRoutes(distance)
                 .setNewPosition(InsertMessage.Position
@@ -384,13 +386,8 @@ public class DroneProcess {
     }
 
     private void startPM10Sensor() {
-        SensorBuffer sensorBuffer = new SensorBuffer();
-        PM10Simulator sensor = new PM10Simulator(sensorBuffer);
-
-        new Thread(() -> {
-            while(true)
-                pm10means.add(sensorBuffer.readAllAndClean().stream().map(Measurement::getValue).reduce(0.0, Double::sum)/8.0);
-        });
+        SensorBuffer sensorBuffer = new SensorBuffer(buffer -> pm10means.add(buffer.readAllAndClean().stream().map(Measurement::getValue).reduce(0.0, Double::sum)/8.0));
+        new PM10Simulator(sensorBuffer).start();
     }
 
     public void start() throws IOException, MqttException, InterruptedException {
