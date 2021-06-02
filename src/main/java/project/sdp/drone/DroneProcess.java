@@ -375,6 +375,7 @@ public class DroneProcess {
             System.out.println("Drone id: " + id);
             System.out.println("Number of delivery: " + deliveryCount);
             System.out.println("Next drone: " + nextDrone);
+            System.out.println("Master drone: " + masterDrone);
             System.out.println(getDronesList());
             System.out.println("\n");
         }, 0, 10*1000, TimeUnit.MILLISECONDS);
