@@ -58,9 +58,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 }
 
                 @Override
-                public void onError(Throwable t) {
-                    droneProcess.onFailNode(t);
-                }
+                public void onError(Throwable t) {}
 
                 @Override
                 public void onCompleted() {
@@ -68,7 +66,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 }
             });
             try {
-                channel.awaitTermination(3, TimeUnit.SECONDS);
+                channel.awaitTermination(1, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -102,9 +100,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 public void onNext(InsertMessage.DeliveryResponse value) {}
 
                 @Override
-                public void onError(Throwable t) {
-                    droneProcess.onFailNode(t);
-                }
+                public void onError(Throwable t) {}
 
                 @Override
                 public void onCompleted() {
@@ -112,7 +108,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 }
             });
             try {
-                channel.awaitTermination(3, TimeUnit.SECONDS);
+                channel.awaitTermination(1, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -151,9 +147,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 public void onNext(InsertMessage.InfoAndStatsResponse value) {}
 
                 @Override
-                public void onError(Throwable t) {
-                    droneProcess.onFailNode(t);
-                }
+                public void onError(Throwable t) {}
 
                 @Override
                 public void onCompleted() {
@@ -162,7 +156,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 }
             });
             try {
-                channel.awaitTermination(3, TimeUnit.SECONDS);
+                channel.awaitTermination(1, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -212,6 +206,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             }
 
             message = request;
+            droneProcess.setMasterNode(droneProcess.getDrone(message.getId()));
         }
 
         Context.current().fork().run(()-> {
@@ -223,15 +218,13 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 public void onNext(InsertMessage.ElectionResponse value) { }
 
                 @Override
-                public void onError(Throwable t) {
-                    droneProcess.onFailNode(t);
-                }
+                public void onError(Throwable t) {}
 
                 @Override
                 public void onCompleted() { channel.shutdown(); }
             });
             try {
-                channel.awaitTermination(3, TimeUnit.SECONDS);
+                channel.awaitTermination(1, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

@@ -4,10 +4,7 @@ import com.google.gson.Gson;
 import org.eclipse.paho.client.mqttv3.*;
 import project.sdp.dronazon.RandomDelivery;
 import project.sdp.server.beans.Drone;
-
 import java.util.ArrayList;
-import java.util.Optional;
-import java.util.function.Function;
 
 
 public class Master extends Thread{

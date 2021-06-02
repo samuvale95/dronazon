@@ -74,32 +74,8 @@ public class DroneProcess {
 
     public void newNextNode(){
         ArrayList<Drone> list = new ArrayList<>(getDronesList());
-
-        int start = 0, end = list.size() - 1;
-
-        int ans = -1;
-        while (start <= end) {
-            int mid = (start + end) / 2;
-
-            // Move to right side if target is
-            // greater.
-            if (list.get(mid).getId() <= id) {
-                start = mid + 1;
-            }
-
-            // Move left side.
-            else {
-                ans = mid;
-                end = mid - 1;
-            }
-        }
-        if(ans==-1) {
-            this.nextDrone = list.get(0);
-        }
-        else {
-            this.nextDrone = list.get(ans);
-        }
-
+        int index = list.indexOf(getDrone());
+        this.nextDrone = list.get((index+1)%list.size());
     }
 
     public Drone getMasterDrone(){return this.masterDrone;}
@@ -185,7 +161,7 @@ public class DroneProcess {
         InsertMessage.InsertRingRequest insertMessage = InsertMessage.InsertRingRequest.newBuilder().setCallerDrone(callerDrone).build();
 
         InsertMessage.InsertRingResponse insertRingResponse = blockingStub.insertIntoRing(insertMessage);
-        channel.shutdown().awaitTermination(3, TimeUnit.SECONDS);
+        channel.shutdown().awaitTermination(1, TimeUnit.MINUTES);
 
         InsertMessage.Drone droneNext = insertRingResponse.getNextDrone();
         InsertMessage.Drone droneMaster = insertRingResponse.getMasterDrone();
@@ -211,7 +187,7 @@ public class DroneProcess {
                 channel1.shutdown();
             }
         });
-        channel1.awaitTermination(3, TimeUnit.SECONDS);
+        channel1.awaitTermination(1, TimeUnit.MINUTES);
     }
 
     private Drone getFuturePreviousNode() {
@@ -308,7 +284,7 @@ public class DroneProcess {
             }
         });
 
-        channel.awaitTermination(3, TimeUnit.SECONDS);
+        channel.awaitTermination(1, TimeUnit.MINUTES);
     }
 
     private void recoverFromNodeFailure(Drone drone) {
@@ -333,7 +309,6 @@ public class DroneProcess {
     public void onFailNode(Throwable t) {
         Drone failNode = getNextDrone();
         if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
-            System.err.println("ERROR on send infoAfterDelivery");
             recoverFromNodeFailure(failNode);
             System.err.println("new next Drone: " + getNextDrone());
         }
@@ -372,7 +347,7 @@ public class DroneProcess {
             }
         });
 
-        channel.awaitTermination(3, TimeUnit.SECONDS);
+        channel.awaitTermination(1, TimeUnit.MINUTES);
     }
 
     private void startPM10Sensor() {
@@ -396,16 +371,12 @@ public class DroneProcess {
         System.out.println("Position: " + position);
 
         Executors.newScheduledThreadPool(1).scheduleAtFixedRate(() -> {
-            try {
-                System.out.println("\n");
-                System.out.println("Drone id: " + id);
-                System.out.println("Number of delivery: " + deliveryCount);
-                System.out.println("Next drone: " + nextDrone);
-                System.out.println("\n");
-            }
-            catch(Exception err){
-                System.out.println(err);
-            }
+            System.out.println("\n");
+            System.out.println("Drone id: " + id);
+            System.out.println("Number of delivery: " + deliveryCount);
+            System.out.println("Next drone: " + nextDrone);
+            System.out.println(getDronesList());
+            System.out.println("\n");
         }, 0, 10*1000, TimeUnit.MILLISECONDS);
 
 
@@ -425,7 +396,7 @@ public class DroneProcess {
 
         Executors.newScheduledThreadPool(1).scheduleAtFixedRate(() -> {
             System.err.println(getNextDrone());
-            ManagedChannel channel = getChannel(getMasterDrone());
+            ManagedChannel channel = getChannel(getNextDrone());
             DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
             stub.isAlive(InsertMessage.AliveMessage.newBuilder().build(), new StreamObserver<InsertMessage.AliveMessage>() {
                 @Override
