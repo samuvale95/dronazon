@@ -287,8 +287,14 @@ public class DroneProcess {
         channel.awaitTermination(1, TimeUnit.MINUTES);
     }
 
-    private void recoverFromNodeFailure(Drone drone) {
+    private void recoverFromNodeFailure(Drone drone) throws MqttException {
         getDronesList().remove(drone);
+        if(getDronesList().size() == 1){
+            setMasterNode(getDrone());
+            setMaster(true);
+            setMasterProcess(new Master(this));
+            getMasterProcess().start();
+        }
         newNextNode();
     }
 
@@ -307,18 +313,19 @@ public class DroneProcess {
     }
 
     public void onFailNode(Throwable t) {
-        Drone failNode = getNextDrone();
-        if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
-            recoverFromNodeFailure(failNode);
-            System.err.println("new next Drone: " + getNextDrone());
-        }
-
-        if(failNode.getId() == getMasterDrone().getId())
-            try {
-                startNewElection();
-            } catch (InterruptedException | MqttException e) {
-                e.printStackTrace();
+        try {
+            Drone failNode = getNextDrone();
+            if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
+                recoverFromNodeFailure(failNode);
+                System.err.println("new next Drone: " + getNextDrone());
             }
+
+            if(failNode.getId() == getMasterDrone().getId())
+                    startNewElection();
+
+        } catch (InterruptedException | MqttException e) {
+            e.printStackTrace();
+        }
     }
 
     private void startNewElection() throws InterruptedException, MqttException {
