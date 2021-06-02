@@ -31,8 +31,6 @@ import project.sdp.server.beans.Statistics;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.sql.Date;
-import java.sql.Timestamp;
 
 @Path("dronazon")
 public class SmartCityService {
@@ -43,6 +41,9 @@ public class SmartCityService {
     @Consumes({"application/json"})
     @Produces(MediaType.APPLICATION_JSON)
     public Response addDrone(Drone drone){
+        if(smartCity.contain(drone))
+            return Response.status(Response.Status.FORBIDDEN).entity("{'error': 'Duplicate ID'}").build();
+
         Gson gson = new Gson();
         return Response.ok(gson.toJson(smartCity.addDrone(drone))).build();
     }

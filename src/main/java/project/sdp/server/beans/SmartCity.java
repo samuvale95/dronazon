@@ -77,4 +77,8 @@ public class SmartCity {
         statistics.forEach((value) -> { if(value.getTimestamp().compareTo(from)>=0 && value.getTimestamp().compareTo(to)<=0) gStatistics.add(value);});
         return gStatistics;
     }
+
+    public boolean contain(Drone drone) {
+        return city.get(drone.getId()) != null;
+    }
 }
