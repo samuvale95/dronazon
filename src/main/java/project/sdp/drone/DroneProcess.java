@@ -57,6 +57,7 @@ public class DroneProcess {
     private double distance = 0;
     private volatile Quit quit;
     private final ArrayList<Double> pm10means;
+    private final Object sharedObject = new Object();
 
 
     public DroneProcess(int id, int port, String URI_AdmServer){
@@ -101,30 +102,35 @@ public class DroneProcess {
     public ArrayList<Drone> getDronesList(){ return this.dronesList.getDrones(); }
 
     public void addDronePosition(InsertMessage.Drone drone, InsertMessage.Position position) {
-        boolean exist = false;
-        for (Drone d : dronesList.getDrones()){
-            if(d.getId() == drone.getId()) {
-                d.setPosition(new Point(position.getX(), position.getY()));
-                exist = true;
+        synchronized (sharedObject) {
+            boolean exist = false;
+            for (Drone d : dronesList.getDrones()) {
+                if (d.getId() == drone.getId()) {
+                    d.setPosition(new Point(position.getX(), position.getY()));
+                    exist = true;
+                }
             }
-        }
-        if(!exist) {
-            Drone d = new Drone(drone.getId(), drone.getIp(), drone.getPort());
-            d.setPosition(new Point(position.getX(), position.getY()));
-            dronesList.add(d);
-            Collections.sort(dronesList.getDrones());
+            if (!exist) {
+                Drone d = new Drone(drone.getId(), drone.getIp(), drone.getPort());
+                d.setPosition(new Point(position.getX(), position.getY()));
+                dronesList.add(d);
+                Collections.sort(dronesList.getDrones());
+            }
         }
     }
 
-    private void registerToServer(){
+    private synchronized void registerToServer(){
         Client client = Client.create();
         Drone newDrone = new Drone(this.id, "localhost", this.port);
 
         WebResource webResource = client.resource(URI_AdmServer + "/dronazon/drone/add");
         ClientResponse clientResponse = webResource.type("application/json").post(ClientResponse.class, newDrone);
 
-        if(clientResponse.getStatus() != 200)
-        throw new RuntimeException("Something in your request is wrong " + clientResponse.getStatus());
+        if(clientResponse.getStatus() == 403){
+            System.out.println("Duplicate ID your request, couldn't be accepted");
+            System.out.println("Insert another ID");
+            System.exit(0);
+        }
 
         Gson gson = new Gson();
         String json = clientResponse.getEntity(String.class);
@@ -141,7 +147,7 @@ public class DroneProcess {
 
     public void setBroker(String broker){ this.broker = broker; }
 
-    private void insertIntoRing() throws MqttException, InterruptedException {
+    private synchronized void insertIntoRing() throws MqttException, InterruptedException {
         if(dronesList.getDrones().size() == 1){
             System.out.println("I'm Drone Master");
             this.masterDrone = new Drone(id, "localhost", port);
@@ -223,79 +229,84 @@ public class DroneProcess {
         System.out.println("****+ Making a delivery *******");
         try {
             Thread.sleep(5000);
-            deliveryCount++;
-            battery -= 10;
-            position = delivery.getDeliveryPoint();
-            distance += position.distance(delivery.getTakePoint()) + delivery.getTakePoint().distance(delivery.getDeliveryPoint());
+            synchronized (sharedObject) {
+                deliveryCount++;
+                battery -= 10;
+                position = delivery.getDeliveryPoint();
+                distance += position.distance(delivery.getTakePoint()) + delivery.getTakePoint().distance(delivery.getDeliveryPoint());
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
         System.out.println("******** Delivery End *********");
 
         System.out.println("\n");
+        synchronized (sharedObject) {
+            InsertMessage.InfoAndStatsRequest infoAndStatsMessage =
+                    InsertMessage.InfoAndStatsRequest
+                            .newBuilder()
+                            .setCallerDrone(id)
+                            .setBattery(battery)
+                            .addAllAirPollution(pm10means)
+                            .setDistanceRoutes(distance)
+                            .setNewPosition(InsertMessage.Position
+                                    .newBuilder()
+                                    .setX((int) position.getX())
+                                    .setY((int) position.getY())
+                                    .build())
+                            .setDeliveryTimeStamp(Timestamp.from(Instant.now()).getTime())
+                            .setDroneTarget(masterDrone.getId())
+                            .setDeliveryNumber(deliveryCount)
+                            .build();
+            if (master) {
+                masterProcess.getInfoAndStatsQueue().add(
+                        new InfoAndStats(infoAndStatsMessage.getDeliveryTimeStamp(),
+                                new Point(infoAndStatsMessage.getNewPosition().getX(),
+                                        infoAndStatsMessage.getNewPosition().getY()
+                                ),
+                                infoAndStatsMessage.getBattery(),
+                                infoAndStatsMessage.getDistanceRoutes(),
+                                infoAndStatsMessage.getAirPollutionList().stream().reduce(0.0, Double::sum) / (double) infoAndStatsMessage.getAirPollutionCount(),
+                                infoAndStatsMessage.getCallerDrone(),
+                                infoAndStatsMessage.getDeliveryNumber()
+                        )
+                );
+                return;
+            }
 
-        InsertMessage.InfoAndStatsRequest infoAndStatsMessage =
-                InsertMessage.InfoAndStatsRequest
-                .newBuilder()
-                .setCallerDrone(id)
-                .setBattery(battery)
-                .addAllAirPollution(pm10means)
-                .setDistanceRoutes(distance)
-                .setNewPosition(InsertMessage.Position
-                        .newBuilder()
-                        .setX((int) position.getX())
-                        .setY((int) position.getY())
-                        .build())
-                .setDeliveryTimeStamp(Timestamp.from(Instant.now()).getTime())
-                .setDroneTarget(masterDrone.getId())
-                .setDeliveryNumber(deliveryCount)
-                .build();
+            final ManagedChannel channel = getChannel(nextDrone);
+            DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
+            stub.sendInfoAfterDelivery(infoAndStatsMessage, new StreamObserver<InsertMessage.InfoAndStatsResponse>() {
+                @Override
+                public void onNext(InsertMessage.InfoAndStatsResponse value) {
+                }
 
-        if(master){
-            masterProcess.getInfoAndStatsQueue().add(
-                    new InfoAndStats(infoAndStatsMessage.getDeliveryTimeStamp(),
-                            new Point(infoAndStatsMessage.getNewPosition().getX(),
-                                    infoAndStatsMessage.getNewPosition().getY()
-                            ),
-                            infoAndStatsMessage.getBattery(),
-                            infoAndStatsMessage.getDistanceRoutes(),
-                            infoAndStatsMessage.getAirPollutionList().stream().reduce(0.0, Double::sum)/(double) infoAndStatsMessage.getAirPollutionCount(),
-                            infoAndStatsMessage.getCallerDrone(),
-                            infoAndStatsMessage.getDeliveryNumber()
-                    )
-            );
-            return;
+                @Override
+                public void onError(Throwable t) {
+                    onFailNode(t);
+                }
+
+                @Override
+                public void onCompleted() {
+                    channel.shutdown();
+                }
+            });
+
+            channel.awaitTermination(1, TimeUnit.MINUTES);
         }
-
-        final ManagedChannel channel = getChannel(nextDrone);
-        DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
-        stub.sendInfoAfterDelivery(infoAndStatsMessage, new StreamObserver<InsertMessage.InfoAndStatsResponse>() {
-            @Override
-            public void onNext(InsertMessage.InfoAndStatsResponse value) {}
-
-            @Override
-            public void onError(Throwable t) {
-                onFailNode(t);
-            }
-
-            @Override
-            public void onCompleted() {
-                channel.shutdown();
-            }
-        });
-
-        channel.awaitTermination(1, TimeUnit.MINUTES);
     }
 
     private void recoverFromNodeFailure(Drone drone) throws MqttException {
-        getDronesList().remove(drone);
-        if(getDronesList().size() == 1){
-            setMasterNode(getDrone());
-            setMaster(true);
-            setMasterProcess(new Master(this));
-            getMasterProcess().start();
+        synchronized (sharedObject) {
+            getDronesList().remove(drone);
+            if (getDronesList().size() == 1) {
+                setMasterNode(getDrone());
+                setMaster(true);
+                setMasterProcess(new Master(this));
+                getMasterProcess().start();
+            }
+            newNextNode();
         }
-        newNextNode();
     }
 
     public String getBroker() {
@@ -304,57 +315,57 @@ public class DroneProcess {
 
     public String getAdministratorServer(){ return this.URI_AdmServer; }
 
-    public void setMasterProcess(Master master) {
-        this.masterProcess = master;
-    }
+    public void setMasterProcess(Master master) { this.masterProcess = master; }
 
-    public void setMasterNode(Drone drone) {
-        this.masterDrone = drone;
-    }
+    public void setMasterNode(Drone drone) { this.masterDrone = drone; }
 
     public void onFailNode(Throwable t) {
-        try {
-            Drone failNode = getNextDrone();
-            if(t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
-                recoverFromNodeFailure(failNode);
-                System.err.println("new next Drone: " + getNextDrone());
-            }
+        synchronized (sharedObject) {
+            try {
+                Drone failNode = getNextDrone();
+                if (t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
+                    recoverFromNodeFailure(failNode);
+                    System.err.println("new next Drone: " + getNextDrone());
+                }
 
-            if(failNode.getId() == getMasterDrone().getId())
+                if (failNode.getId() == getMasterDrone().getId())
                     startNewElection();
 
-        } catch (InterruptedException | MqttException e) {
-            e.printStackTrace();
+            } catch (InterruptedException | MqttException e) {
+                e.printStackTrace();
+            }
         }
     }
 
     private void startNewElection() throws InterruptedException, MqttException {
-        InsertMessage.ElectionRequest message = InsertMessage.ElectionRequest
-                .newBuilder()
-                .setId(id)
-                .setBattery(battery)
-                .setType("ELECTION")
-                .build();
-        final ManagedChannel channel = getChannel(nextDrone);
-        DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
-        stub.election(message, new StreamObserver<InsertMessage.ElectionResponse>() {
-            @Override
-            public void onNext(InsertMessage.ElectionResponse value) {
+        synchronized (sharedObject) {
+            InsertMessage.ElectionRequest message = InsertMessage.ElectionRequest
+                    .newBuilder()
+                    .setId(id)
+                    .setBattery(battery)
+                    .setType("ELECTION")
+                    .build();
+            final ManagedChannel channel = getChannel(nextDrone);
+            DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
+            stub.election(message, new StreamObserver<InsertMessage.ElectionResponse>() {
+                @Override
+                public void onNext(InsertMessage.ElectionResponse value) {
 
-            }
+                }
 
-            @Override
-            public void onError(Throwable t) {
-                onFailNode(t);
-            }
+                @Override
+                public void onError(Throwable t) {
+                    onFailNode(t);
+                }
 
-            @Override
-            public void onCompleted() {
-                channel.shutdown();
-            }
-        });
+                @Override
+                public void onCompleted() {
+                    channel.shutdown();
+                }
+            });
 
-        channel.awaitTermination(1, TimeUnit.MINUTES);
+            channel.awaitTermination(1, TimeUnit.MINUTES);
+        }
     }
 
     private void startPM10Sensor() {
