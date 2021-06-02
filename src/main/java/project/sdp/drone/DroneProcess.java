@@ -93,10 +93,12 @@ public class DroneProcess {
                 end = mid - 1;
             }
         }
-        if(ans==-1)
+        if(ans==-1) {
             this.nextDrone = list.get(0);
-        else
+        }
+        else {
             this.nextDrone = list.get(ans);
+        }
 
     }
 
@@ -183,7 +185,7 @@ public class DroneProcess {
         InsertMessage.InsertRingRequest insertMessage = InsertMessage.InsertRingRequest.newBuilder().setCallerDrone(callerDrone).build();
 
         InsertMessage.InsertRingResponse insertRingResponse = blockingStub.insertIntoRing(insertMessage);
-        channel.shutdown().awaitTermination(1, TimeUnit.MINUTES);
+        channel.shutdown().awaitTermination(3, TimeUnit.SECONDS);
 
         InsertMessage.Drone droneNext = insertRingResponse.getNextDrone();
         InsertMessage.Drone droneMaster = insertRingResponse.getMasterDrone();
@@ -396,10 +398,9 @@ public class DroneProcess {
         Executors.newScheduledThreadPool(1).scheduleAtFixedRate(() -> {
             try {
                 System.out.println("\n");
+                System.out.println("Drone id: " + id);
                 System.out.println("Number of delivery: " + deliveryCount);
                 System.out.println("Next drone: " + nextDrone);
-                System.out.println("Pollution: " + pm10means);
-                newNextNode();
                 System.out.println("\n");
             }
             catch(Exception err){
@@ -432,6 +433,7 @@ public class DroneProcess {
 
                 @Override
                 public void onError(Throwable t) {
+                    System.err.println("Fail on PING");
                     onFailNode(t);
                 }
 
@@ -439,7 +441,7 @@ public class DroneProcess {
                 public void onCompleted() { channel.shutdown(); }
             });
             try {
-                channel.awaitTermination(3, TimeUnit.SECONDS);
+                channel.awaitTermination(1, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

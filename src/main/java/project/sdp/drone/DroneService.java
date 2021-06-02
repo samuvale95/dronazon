@@ -143,7 +143,6 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             responseObserver.onCompleted();
             return;
         }
-        //TODO update position of drones in all nodes
         Context.current().fork().run(() -> {
             ManagedChannel channel = droneProcess.getChannel(droneProcess.getNextDrone());
             DroneServiceGrpc.DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
@@ -176,9 +175,8 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
     public void election(InsertMessage.ElectionRequest request, StreamObserver<InsertMessage.ElectionResponse> responseObserver) {
         InsertMessage.ElectionRequest message;
 
-        //ELECTION message
         if(request.getType().equals("ELECTION")) {
-            //drone elected to Master
+            System.err.println("ELECTION IN ACTION");
             if (request.getBattery() == droneProcess.getDrone().getBattery() && request.getId() == droneProcess.getDrone().getId()) {
                 message = InsertMessage.ElectionRequest
                         .newBuilder()
@@ -186,12 +184,12 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                         .setBattery(droneProcess.getDrone().getBattery())
                         .setType("ELECTED")
                         .build();
-                //forward request message
             }else if (request.getBattery() > droneProcess.getDrone().getBattery() ||
                     (request.getBattery() == droneProcess.getDrone().getBattery() && request.getId() > droneProcess.getDrone().getId())) {
+                System.err.println("FORWARD");
                 message = request;
-                //if drone is participant to Election Stop propagation the message, else insert his id inside message
             }else{
+                System.err.println("FORWARD with new packet");
                 message = InsertMessage.ElectionRequest
                         .newBuilder()
                         .setId(droneProcess.getDrone().getId())
@@ -199,9 +197,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                         .setType("ELECTION")
                         .build();
             }
-            //ELECTED message
         }else{
-            //Set master node if id is same of message
             if(request.getBattery() == droneProcess.getDrone().getBattery() && request.getId() == droneProcess.getDrone().getId()){
                 System.err.println("SET NEW MASTER");
                 droneProcess.setMaster(true);
@@ -215,16 +211,14 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 return;
             }
 
-            //else forward message
             message = request;
         }
 
-        InsertMessage.ElectionRequest finalMessage = message;
         Context.current().fork().run(()-> {
             ManagedChannel channel = droneProcess.getChannel(droneProcess.getNextDrone());
 
             DroneServiceGrpc.DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
-            stub.election(finalMessage, new StreamObserver<InsertMessage.ElectionResponse>() {
+            stub.election(message, new StreamObserver<InsertMessage.ElectionResponse>() {
                 @Override
                 public void onNext(InsertMessage.ElectionResponse value) { }
 
@@ -234,10 +228,10 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 }
 
                 @Override
-                public void onCompleted() {}
+                public void onCompleted() { channel.shutdown(); }
             });
             try {
-                channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
+                channel.awaitTermination(3, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
