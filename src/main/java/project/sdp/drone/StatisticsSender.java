@@ -22,7 +22,7 @@ public class StatisticsSender extends Thread{
         int deliveryNumber = master.getGlobalStats().stream().map(InfoAndStats::getDeliveryNumber).reduce(0, Integer::sum);
         double pollution = master.getGlobalStats().stream().map(stats -> {
             Optional<Double> sum = stats.getAirPollution().stream().reduce(Double::sum);
-            return sum.map(aDouble -> aDouble / 8.0).orElse(0.0);
+            return sum.map(aDouble -> aDouble / (double) stats.getAirPollution().size()).orElse(0.0);
         }).reduce(0.0, Double::sum);
         int battery = master.getGlobalStats().stream().map(InfoAndStats::getBattery).reduce(0, Integer::sum);
         double statsNumber = master.getGlobalStats().size();
