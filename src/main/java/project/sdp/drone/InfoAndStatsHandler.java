@@ -37,7 +37,6 @@ public class InfoAndStatsHandler extends Thread{
                         drone.setCommittedToDelivery(false);
                         drone.setPosition(newPosition);
                         drone.setBattery(battery);
-
                     }
                 }
 

@@ -1,7 +1,6 @@
 package project.sdp.server.beans;
 
 import java.awt.*;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;

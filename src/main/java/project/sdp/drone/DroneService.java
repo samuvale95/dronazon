@@ -133,7 +133,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                             ),
                             request.getBattery(),
                             request.getDistanceRoutes(),
-                            0.0,
+                            request.getAirPollutionList(),
                             request.getCallerDrone(),
                             request.getDeliveryNumber()
                     )

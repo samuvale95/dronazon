@@ -6,6 +6,7 @@ import com.sun.jersey.api.client.WebResource;
 import project.sdp.server.beans.Statistics;
 
 import java.sql.Timestamp;
+import java.util.Optional;
 
 public class StatisticsSender extends Thread{
     private final DroneProcess droneProcess;
@@ -19,10 +20,13 @@ public class StatisticsSender extends Thread{
     private Statistics calculateGlobalStatistics() {
         Double distance = master.getGlobalStats().stream().map(InfoAndStats::getDistanceRoutes).reduce(0.0, Double::sum);
         int deliveryNumber = master.getGlobalStats().stream().map(InfoAndStats::getDeliveryNumber).reduce(0, Integer::sum);
-        double pollution = master.getGlobalStats().stream().map(InfoAndStats::getAirPollution).reduce(0.0, Double::sum);
+        double pollution = master.getGlobalStats().stream().map(stats -> {
+            Optional<Double> sum = stats.getAirPollution().stream().reduce(Double::sum);
+            return sum.map(aDouble -> aDouble / 8.0).orElse(0.0);
+        }).reduce(0.0, Double::sum);
         int battery = master.getGlobalStats().stream().map(InfoAndStats::getBattery).reduce(0, Integer::sum);
-        double droneNumber = droneProcess.getDronesList().size();
-        return new Statistics(deliveryNumber/droneNumber, distance/droneNumber, pollution/droneNumber, battery/droneNumber, new Timestamp(System.currentTimeMillis()).toString());
+        double statsNumber = master.getGlobalStats().size();
+        return new Statistics(deliveryNumber/statsNumber, distance/statsNumber, pollution/statsNumber, battery/statsNumber, new Timestamp(System.currentTimeMillis()).toString());
     }
 
     private void sendGlobalStatistics() {

@@ -26,21 +26,6 @@ import java.util.Scanner;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-/*
-* Ogni dorne e' un processo e non un thread
-*
-* I droni comunicano con gRPC
-*
-* Campi della classe:
-* - ID
-* - porta
-* - indirizzo/URI server amministratore
-* - battery init 100%
-* I due seguenti vengono passati dal server quando il drone si registra al server
-* - position
-* - DroneList
-*
-* */
 public class DroneProcess {
     private final int id;
     private final int port;
@@ -266,7 +251,7 @@ public class DroneProcess {
                                 ),
                                 infoAndStatsMessage.getBattery(),
                                 infoAndStatsMessage.getDistanceRoutes(),
-                                infoAndStatsMessage.getAirPollutionList().stream().reduce(0.0, Double::sum) / (double) infoAndStatsMessage.getAirPollutionCount(),
+                                infoAndStatsMessage.getAirPollutionList(),
                                 infoAndStatsMessage.getCallerDrone(),
                                 infoAndStatsMessage.getDeliveryNumber()
                         )
@@ -369,7 +354,7 @@ public class DroneProcess {
     }
 
     private void startPM10Sensor() {
-        SensorBuffer sensorBuffer = new SensorBuffer(buffer -> pm10means.add(buffer.readAllAndClean().stream().map(Measurement::getValue).reduce(0.0, Double::sum)/8.0));
+        SensorBuffer sensorBuffer = new SensorBuffer(buffer -> pm10means.add(((SensorBuffer) buffer).readAllAndClean().stream().map(Measurement::getValue).reduce(0.0, Double::sum)/8.0));
         new PM10Simulator(sensorBuffer).start();
     }
 
