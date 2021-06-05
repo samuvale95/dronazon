@@ -5,6 +5,7 @@ import com.example.grpc.InsertMessage;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
+import org.eclipse.paho.client.mqttv3.MqttException;
 import project.sdp.server.beans.Drone;
 
 import java.awt.*;
@@ -87,8 +88,8 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             Point deliveryPosition = new Point(newDelivery.getDeliveryPoint().getX(), newDelivery.getDeliveryPoint().getY());
             Point takePosition = new Point(newDelivery.getTakePoint().getX(), newDelivery.getTakePoint().getY());
             try {
-                droneProcess.makeDelivery(new Delivery(request.getDelivery().getId(), takePosition, deliveryPosition));
-            } catch (InterruptedException e) {
+                droneProcess.  makeDelivery(new Delivery(request.getDelivery().getId(), takePosition, deliveryPosition));
+            } catch (InterruptedException | MqttException e) {
                 e.printStackTrace();
             }
             return;

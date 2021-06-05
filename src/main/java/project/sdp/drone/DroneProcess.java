@@ -43,7 +43,6 @@ public class DroneProcess {
     private final Master masterProcess;
     private int deliveryCount = 0;
     private double distance = 0;
-    private volatile Quit quit;
     private final ArrayList<Double> pm10means;
     private final Object propertySync = new Object();
     private final static Logger LOGGER = Logger.getLogger(DroneProcess.class.getName());
@@ -56,7 +55,6 @@ public class DroneProcess {
         this.battery = 100;
         this.master = false;
         this.nextDrone = new Drone(id, "localhost", port);
-        this.quit = new Quit();
         this.pm10means = new ArrayList<>();
         this.dronesList = new ListDrone();
         this.broker = broker;
@@ -239,7 +237,7 @@ public class DroneProcess {
         return this.masterProcess;
     }
 
-    public void makeDelivery(Delivery delivery) throws InterruptedException {
+    public void makeDelivery(Delivery delivery) throws InterruptedException, MqttException {
         System.out.println("****+ Making a delivery *******");
         try {
             Thread.sleep(5000);
@@ -308,6 +306,8 @@ public class DroneProcess {
             });
 
             channel.awaitTermination(1, TimeUnit.MINUTES);
+            if(battery < 15)
+                this.close();
     }
 
     private void recoverFromNodeFailure(Drone drone) throws MqttException {
@@ -386,6 +386,17 @@ public class DroneProcess {
         new PM10Simulator(sensorBuffer).start();
     }
 
+    private void close() throws MqttException, InterruptedException {
+        if(master) masterProcess.shutdown();
+
+        Client client = Client.create();
+        WebResource webResource = client.resource(URI_AdmServer + "/dronazon/drone/remove/"+id);
+        ClientResponse clientResponse = webResource.type("application/json").delete(ClientResponse.class);
+        if(clientResponse.getStatus() == 200)
+            System.out.println("Drone Removed");
+        System.exit(0);
+    }
+
     public void start() throws IOException, MqttException, InterruptedException {
         registerToServer();
 
@@ -412,17 +423,16 @@ public class DroneProcess {
         }, 0, 10*1000, TimeUnit.MILLISECONDS);
 
 
-        new Thread(new Runnable() {
-            final Quit quit = DroneProcess.this.quit;
-
-            @Override
-            public void run() {
-                Scanner sc = new Scanner(System.in);
+        new Thread(() -> {
+            Scanner sc = new Scanner(System.in);
+            System.out.println("Write quit to exit");
+            while (!sc.nextLine().equals("quit")){
                 System.out.println("Write quit to exit");
-                while (!sc.nextLine().equals("quit")){
-                    System.out.println("Write quit to exit");
-                }
-                quit.setQuit(true);
+            }
+            try {
+                DroneProcess.this.close();
+            } catch (MqttException | InterruptedException e) {
+                e.printStackTrace();
             }
         }).start();
 
@@ -449,17 +459,6 @@ public class DroneProcess {
                 e.printStackTrace();
             }
         }, 0, 7*1000, TimeUnit.MILLISECONDS);
-
-        while (!this.quit.isQuit() && battery > 15);
-
-        if(master) masterProcess.shutdown();
-
-        Client client = Client.create();
-        WebResource webResource = client.resource(URI_AdmServer + "/dronazon/drone/remove/"+id);
-        ClientResponse clientResponse = webResource.type("application/json").delete(ClientResponse.class);
-        if(clientResponse.getStatus() == 200)
-            System.out.println("Drone Removed");
-        System.exit(0);
     }
 
     public static void main(String[] args) throws IOException, MqttException, InterruptedException {

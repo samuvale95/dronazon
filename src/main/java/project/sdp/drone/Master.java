@@ -50,16 +50,31 @@ public class Master extends Thread{
     }
 
     public Buffer<project.sdp.dronazon.Delivery> getDeliveryQueue() { return this.deliveryQueue; }
+
     public Buffer<InfoAndStats> getInfoAndStatsQueue(){ return this.infoAndStatsQueue; }
+
     public ArrayList<InfoAndStats> getGlobalStats() {
             return globalStats;
     }
-    public void shutdown() throws MqttException {
+
+    public void shutdown() throws MqttException, InterruptedException {
         client.disconnect();
         client.close();
 
-        //TODO remove busy waiting
-        while(droneProcess.getDronesList().stream().map(Drone::getCommittedToDelivery).reduce(false, (d1, d2) -> d1||d2 ));
+        ArrayList<Drone> list;
+        synchronized (droneProcess.getDronesList()) {
+            list = new ArrayList<>(droneProcess.getDronesList());
+        }
+
+        while(list.stream().map(Drone::getCommittedToDelivery).reduce(false, (d1, d2) -> d1||d2 )){
+            synchronized (this) {
+                System.err.println("WAITING");
+                this.wait();
+            }
+            synchronized (droneProcess.getDronesList()) {
+                list = new ArrayList<>(droneProcess.getDronesList());
+            }
+        }
     }
 
     @Override

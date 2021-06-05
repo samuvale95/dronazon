@@ -36,14 +36,21 @@ public class InfoAndStatsHandler extends Thread{
             ArrayList<Drone> listDrone;
             synchronized (droneProcess.getDronesList()) {
                 listDrone = new ArrayList<>(droneProcess.getDronesList());
-            }
 
-            System.out.println(infoAndStats);
-            for (Drone drone: listDrone) {
-                if (drone.getId() == callerDroneId) {
-                    drone.setCommittedToDelivery(false);
-                    drone.setPosition(newPosition);
-                    drone.setBattery(battery);
+
+                System.out.println(infoAndStats);
+                for (Drone drone: listDrone) {
+                    if (drone.getId() == callerDroneId) {
+                        drone.setCommittedToDelivery(false);
+                        drone.setPosition(newPosition);
+                        drone.setBattery(battery);
+                        synchronized (droneProcess.getMasterProcess()) {
+                            if (droneProcess.getMasterProcess().getState() == State.TERMINATED) {
+                                System.err.println("NOTIFY");
+                                droneProcess.getMasterProcess().notify();
+                            }
+                        }
+                    }
                 }
             }
 
