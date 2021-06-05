@@ -59,7 +59,6 @@ public class DeliveryHandler extends Thread{
 
     @Override
     public void run() {
-        //TODO fix busy waiting
         while (true){
             Buffer<Delivery> queue = droneProcess.getMasterProcess().getDeliveryQueue();
             Delivery delivery = null;

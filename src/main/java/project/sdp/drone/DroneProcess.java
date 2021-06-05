@@ -5,6 +5,7 @@ import com.example.grpc.DroneServiceGrpc.*;
 import com.example.grpc.InsertMessage;
 import com.google.gson.Gson;
 import com.sun.jersey.api.client.Client;
+import com.sun.jersey.api.client.ClientHandlerException;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
 import io.grpc.*;
@@ -133,8 +134,15 @@ public class DroneProcess {
         Drone newDrone = new Drone(this.id, "localhost", this.port);
 
         WebResource webResource = client.resource(URI_AdmServer + "/dronazon/drone/add");
-        ClientResponse clientResponse = webResource.type("application/json").post(ClientResponse.class, newDrone);
+        ClientResponse clientResponse = null;
+        try {
+            clientResponse = webResource.type("application/json").post(ClientResponse.class, newDrone);
+        }catch (ClientHandlerException e){
+            System.out.println("Server not answer!!");
+            System.exit(0);
+        }
 
+        assert clientResponse != null;
         if(clientResponse.getStatus() == 403){
             System.out.println("Duplicate ID your request, couldn't be accepted");
             System.out.println("Insert another ID");
