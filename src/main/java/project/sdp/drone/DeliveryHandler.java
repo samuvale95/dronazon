@@ -3,14 +3,11 @@ package project.sdp.drone;
 import com.example.grpc.DroneServiceGrpc;
 import com.example.grpc.InsertMessage;
 import io.grpc.ManagedChannel;
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import javafx.util.Pair;
 import project.sdp.dronazon.Delivery;
 import project.sdp.server.beans.Drone;
 import java.util.ArrayList;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -23,46 +20,46 @@ public class DeliveryHandler extends Thread{
     }
 
     private Drone getDeliveryDrone(Delivery delivery) {
+        ArrayList<Drone> listDrone;
         synchronized (droneProcess.getDronesList()) {
-            ArrayList<Drone> listDrone = droneProcess.getDronesList();
-            ArrayList<Drone> possibleDrones = new ArrayList<>();
-
-            for (Drone d: listDrone) {
-                if (!d.getCommittedToDelivery())
-                    possibleDrones.add(d);
-            }
-
-            if (possibleDrones.size() == 0) {
-                return null;
-            }
-
-            Optional<Pair<Drone, Double>> res = possibleDrones.stream().map(drone -> new Pair<>(drone, drone.getPosition().distance(delivery.getTakePoint()))).reduce((d1, d2) -> {
-                if (d1.getValue() < d2.getValue()) return d1;
-                else if (d1.getValue() > d2.getValue()) return d2;
-                else if (d1.getKey().getId() > d2.getKey().getId()) return d1;
-                else return d2;
-            });
-
-            Drone result = res.orElse(null).getKey();
-
-            synchronized (Objects.requireNonNull(result)) {
-                result.setCommittedToDelivery(true);
-            }
-            System.out.println("\n");
-            System.out.println("Next Delivery Drone: " + result);
-            System.out.println("List Drone: ");
-            System.out.println(listDrone);
-            System.out.println("Possible Drone: ");
-            for (Drone drone : possibleDrones) {
-                System.out.println(new Pair<>(drone, drone.getPosition().distance(delivery.getTakePoint())));
-            }
-            System.out.println("\n");
-            return result;
+            listDrone =  new ArrayList<>(droneProcess.getDronesList());
         }
+        ArrayList<Drone> possibleDrones = new ArrayList<>();
+
+        for (Drone d: listDrone) {
+            if (!d.getCommittedToDelivery())
+                possibleDrones.add(d);
+        }
+
+        if (possibleDrones.size() == 0) {
+            return null;
+        }
+
+        Optional<Pair<Drone, Double>> res = possibleDrones.stream().map(drone -> new Pair<>(drone, drone.getPosition().distance(delivery.getTakePoint()))).reduce((d1, d2) -> {
+            if (d1.getValue() < d2.getValue()) return d1;
+            else if (d1.getValue() > d2.getValue()) return d2;
+            else if (d1.getKey().getId() > d2.getKey().getId()) return d1;
+            else return d2;
+        });
+
+        Drone result = res.orElse(null).getKey();
+
+        result.setCommittedToDelivery(true);
+        System.out.println("\n");
+        System.out.println("Next Delivery Drone: " + result);
+        System.out.println("List Drone: ");
+        System.out.println(listDrone);
+        System.out.println("Possible Drone: ");
+        for (Drone drone : possibleDrones) {
+            System.out.println(new Pair<>(drone, drone.getPosition().distance(delivery.getTakePoint())));
+        }
+        System.out.println("\n");
+        return result;
     }
 
     @Override
     public void run() {
+        //TODO fix busy waiting
         while (true){
             Buffer<Delivery> queue = droneProcess.getMasterProcess().getDeliveryQueue();
             Delivery delivery = null;

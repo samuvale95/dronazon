@@ -5,7 +5,6 @@ import com.example.grpc.InsertMessage;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
-import org.eclipse.paho.client.mqttv3.MqttException;
 import project.sdp.server.beans.Drone;
 
 import java.awt.*;
@@ -197,13 +196,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
         }else{
             if(request.getBattery() == droneProcess.getDrone().getBattery() && request.getId() == droneProcess.getDrone().getId()){
                 System.err.println("SET NEW MASTER");
-                droneProcess.setMaster(true);
                 droneProcess.setMasterNode(new Drone(droneProcess.getDrone().getId(), droneProcess.getDrone().getIp(), droneProcess.getDrone().getPort()));
-                try {
-                    droneProcess.setMasterProcess(new Master(droneProcess));
-                } catch (MqttException e) {
-                    e.printStackTrace();
-                }
                 droneProcess.getMasterProcess().start();
                 return;
             }

@@ -58,6 +58,7 @@ public class Master extends Thread{
         client.disconnect();
         client.close();
 
+        //TODO remove busy waiting
         while(droneProcess.getDronesList().stream().map(Drone::getCommittedToDelivery).reduce(false, (d1, d2) -> d1||d2 ));
     }
 

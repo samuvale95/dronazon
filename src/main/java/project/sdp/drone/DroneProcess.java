@@ -32,20 +32,22 @@ public class DroneProcess {
     private final String URI_AdmServer;
     private volatile int battery;
     private Point position;
-    private ListDrone dronesList;
+    private final Object positionSync = new Object();
+    private final ListDrone dronesList;
     private boolean master;
     private Drone masterDrone;
     private Drone nextDrone;
+    private final Object nextDroneSync = new Object();
     private String broker;
-    private Master masterProcess;
+    private final Master masterProcess;
     private int deliveryCount = 0;
     private double distance = 0;
     private volatile Quit quit;
     private final ArrayList<Double> pm10means;
-    private final Object sharedObject = new Object();
+    private final Object propertySync = new Object();
 
 
-    public DroneProcess(int id, int port, String URI_AdmServer){
+    public DroneProcess(int id, int port, String URI_AdmServer) throws MqttException {
         this.id = id;
         this.port = port;
         this.URI_AdmServer = URI_AdmServer;
@@ -54,23 +56,40 @@ public class DroneProcess {
         this.nextDrone = new Drone(id, "localhost", port);
         this.quit = new Quit();
         this.pm10means = new ArrayList<>();
+        this.dronesList = new ListDrone();
+        this.masterProcess = new Master(this);
     }
 
-    public void setNextDrone(Drone nextDrone) { this.nextDrone = nextDrone; }
+    public void setNextDrone(Drone nextDrone) {
+        synchronized (nextDroneSync) {
+            this.nextDrone = nextDrone;
+        }
+    }
 
     public void newNextNode(){
-        ArrayList<Drone> list = new ArrayList<>(getDronesList());
+        ArrayList<Drone> list;
+        synchronized (dronesList) {
+            list = new ArrayList<>(getDronesList());
+        }
         int index = list.indexOf(getDrone());
-        this.nextDrone = list.get((index+1)%list.size());
+        synchronized (nextDroneSync) {
+            this.nextDrone = list.get((index + 1) % list.size());
+        }
     }
 
     public Drone getMasterDrone(){return this.masterDrone;}
 
-    public Drone getNextDrone() { return this.nextDrone; }
+    public Drone getNextDrone() {
+        synchronized (nextDroneSync){
+            return this.nextDrone;
+        }
+    }
 
     public Drone getDrone() {
         Drone t = new Drone(id, "localhost", port);
-        t.setPosition(position);
+        synchronized (positionSync){
+            t.setPosition(position);
+        }
         return t;
     }
 
@@ -84,10 +103,14 @@ public class DroneProcess {
     }
 
 
-    public ArrayList<Drone> getDronesList(){ return this.dronesList.getDrones(); }
+    public ArrayList<Drone> getDronesList(){
+        synchronized (dronesList) {
+            return this.dronesList.getDrones();
+        }
+    }
 
     public void addDronePosition(InsertMessage.Drone drone, InsertMessage.Position position) {
-        synchronized (sharedObject) {
+        synchronized (dronesList) {
             boolean exist = false;
             for (Drone d : dronesList.getDrones()) {
                 if (d.getId() == drone.getId()) {
@@ -121,7 +144,7 @@ public class DroneProcess {
         String json = clientResponse.getEntity(String.class);
         Pair pair = gson.fromJson(json, Pair.class);
 
-        this.dronesList = pair.getListDrone();
+        this.dronesList.setDrones(pair.getListDrone().getDrones());
         Collections.sort(dronesList.getDrones());
         this.position = pair.getPosition();
     }
@@ -136,7 +159,6 @@ public class DroneProcess {
         if(dronesList.getDrones().size() == 1){
             System.out.println("I'm Drone Master");
             this.masterDrone = new Drone(id, "localhost", port);
-            masterProcess = new Master(this);
             masterProcess.start();
             return;
         }
@@ -206,15 +228,19 @@ public class DroneProcess {
             return list.get(ans);
     }
 
-    public void setMaster(Boolean state){ this.master = state; }
+    public void setMaster(Boolean state){
+        this.master = state;
+    }
 
-    public Master getMasterProcess() { return this.masterProcess; }
+    public Master getMasterProcess() {
+            return this.masterProcess;
+    }
 
     public void makeDelivery(Delivery delivery) throws InterruptedException {
         System.out.println("****+ Making a delivery *******");
         try {
             Thread.sleep(5000);
-            synchronized (sharedObject) {
+            synchronized (propertySync) {
                 deliveryCount++;
                 battery -= 10;
                 position = delivery.getDeliveryPoint();
@@ -226,9 +252,9 @@ public class DroneProcess {
         System.out.println("******** Delivery End *********");
 
         System.out.println("\n");
-        synchronized (sharedObject) {
-            InsertMessage.InfoAndStatsRequest infoAndStatsMessage =
-                    InsertMessage.InfoAndStatsRequest
+        InsertMessage.InfoAndStatsRequest infoAndStatsMessage;
+        synchronized (this) {
+            infoAndStatsMessage = InsertMessage.InfoAndStatsRequest
                             .newBuilder()
                             .setCallerDrone(id)
                             .setBattery(battery)
@@ -258,6 +284,7 @@ public class DroneProcess {
                 );
                 return;
             }
+        }
 
             final ManagedChannel channel = getChannel(nextDrone);
             DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
@@ -278,20 +305,18 @@ public class DroneProcess {
             });
 
             channel.awaitTermination(1, TimeUnit.MINUTES);
-        }
     }
 
     private void recoverFromNodeFailure(Drone drone) throws MqttException {
-        synchronized (sharedObject) {
+        synchronized (dronesList) {
             getDronesList().remove(drone);
             if (getDronesList().size() == 1) {
                 setMasterNode(getDrone());
                 setMaster(true);
-                setMasterProcess(new Master(this));
                 getMasterProcess().start();
             }
-            newNextNode();
         }
+        newNextNode();
     }
 
     public String getBroker() {
@@ -300,57 +325,57 @@ public class DroneProcess {
 
     public String getAdministratorServer(){ return this.URI_AdmServer; }
 
-    public void setMasterProcess(Master master) { this.masterProcess = master; }
-
     public void setMasterNode(Drone drone) { this.masterDrone = drone; }
 
     public void onFailNode(Throwable t) {
-        synchronized (sharedObject) {
-            try {
-                Drone failNode = getNextDrone();
-                if (t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
-                    recoverFromNodeFailure(failNode);
-                    System.err.println("new next Drone: " + getNextDrone());
-                }
-
-                if (failNode.getId() == getMasterDrone().getId())
-                    startNewElection();
-
-            } catch (InterruptedException | MqttException e) {
-                e.printStackTrace();
+        try {
+            Drone failNode;
+            synchronized (nextDroneSync) {
+                failNode = getNextDrone();
             }
+            if (t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
+                recoverFromNodeFailure(failNode);
+                System.err.println("new next Drone: " + getNextDrone());
+            }
+
+            if (failNode.getId() == getMasterDrone().getId())
+                startNewElection();
+
+        } catch (InterruptedException | MqttException e) {
+            e.printStackTrace();
         }
     }
 
     private void startNewElection() throws InterruptedException, MqttException {
-        synchronized (sharedObject) {
-            InsertMessage.ElectionRequest message = InsertMessage.ElectionRequest
+        InsertMessage.ElectionRequest message;
+        synchronized (propertySync) {
+            message = InsertMessage.ElectionRequest
                     .newBuilder()
                     .setId(id)
                     .setBattery(battery)
                     .setType("ELECTION")
                     .build();
-            final ManagedChannel channel = getChannel(nextDrone);
-            DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
-            stub.election(message, new StreamObserver<InsertMessage.ElectionResponse>() {
-                @Override
-                public void onNext(InsertMessage.ElectionResponse value) {
-
-                }
-
-                @Override
-                public void onError(Throwable t) {
-                    onFailNode(t);
-                }
-
-                @Override
-                public void onCompleted() {
-                    channel.shutdown();
-                }
-            });
-
-            channel.awaitTermination(1, TimeUnit.MINUTES);
         }
+        final ManagedChannel channel = getChannel(nextDrone);
+        DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
+        stub.election(message, new StreamObserver<InsertMessage.ElectionResponse>() {
+            @Override
+            public void onNext(InsertMessage.ElectionResponse value) {
+
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                onFailNode(t);
+            }
+
+            @Override
+            public void onCompleted() {
+                channel.shutdown();
+            }
+        });
+
+        channel.awaitTermination(1, TimeUnit.MINUTES);
     }
 
     private void startPM10Sensor() {

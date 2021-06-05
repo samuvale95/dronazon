@@ -5,7 +5,7 @@ import java.util.ArrayList;
 
 @XmlRootElement
 public class ListDrone {
-    private final ArrayList<Drone> drones = new ArrayList<>();
+    private ArrayList<Drone> drones;
 
     public ListDrone() {}
 
@@ -14,8 +14,8 @@ public class ListDrone {
         return drones;
     }
 
-    public ArrayList<Drone> setDrones() {
-        return drones;
+    public void setDrones(ArrayList<Drone> droneList) {
+        this.drones = droneList;
     }
 
     public void add(Drone drone) {

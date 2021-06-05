@@ -6,6 +6,7 @@ import com.sun.jersey.api.client.WebResource;
 import project.sdp.server.beans.Statistics;
 
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Optional;
 
 public class StatisticsSender extends Thread{
@@ -18,19 +19,25 @@ public class StatisticsSender extends Thread{
     }
 
     private Statistics calculateGlobalStatistics() {
-        Double distance = master.getGlobalStats().stream().map(InfoAndStats::getDistanceRoutes).reduce(0.0, Double::sum);
-        int deliveryNumber = master.getGlobalStats().stream().map(InfoAndStats::getDeliveryNumber).reduce(0, Integer::sum);
-        double pollution = master.getGlobalStats().stream().map(stats -> {
+        ArrayList<InfoAndStats> globalStats;
+        synchronized (master.getGlobalStats()) {
+            globalStats = new ArrayList<>(master.getGlobalStats());
+        }
+        Double distance = globalStats.stream().map(InfoAndStats::getDistanceRoutes).reduce(0.0, Double::sum);
+        int deliveryNumber = globalStats.stream().map(InfoAndStats::getDeliveryNumber).reduce(0, Integer::sum);
+        double pollution = globalStats.stream().map(stats -> {
             Optional<Double> sum = stats.getAirPollution().stream().reduce(Double::sum);
             return sum.map(aDouble -> aDouble / (double) stats.getAirPollution().size()).orElse(0.0);
         }).reduce(0.0, Double::sum);
-        int battery = master.getGlobalStats().stream().map(InfoAndStats::getBattery).reduce(0, Integer::sum);
-        double statsNumber = master.getGlobalStats().size();
+        int battery = globalStats.stream().map(InfoAndStats::getBattery).reduce(0, Integer::sum);
+        double statsNumber = globalStats.size();
         return new Statistics(deliveryNumber/statsNumber, distance/statsNumber, pollution/statsNumber, battery/statsNumber, new Timestamp(System.currentTimeMillis()).toString());
     }
 
     private void sendGlobalStatistics() {
-        if(master.getGlobalStats().size() == 0) return;
+        synchronized (master.getGlobalStats()) {
+            if (master.getGlobalStats().size() == 0) return;
+        }
 
         Client client = Client.create();
 
