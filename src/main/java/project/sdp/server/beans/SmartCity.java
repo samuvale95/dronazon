@@ -57,6 +57,7 @@ public class SmartCity {
 
     public synchronized ListDrone getAllDrones(){
         ListDrone drones = new ListDrone();
+        drones.setDrones(new ArrayList<>());
         city.forEach((key, value) -> drones.add(value));
         return drones;
     }

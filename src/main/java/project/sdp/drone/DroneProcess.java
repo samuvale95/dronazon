@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.Scanner;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 public class DroneProcess {
     private final int id;
@@ -45,9 +46,10 @@ public class DroneProcess {
     private volatile Quit quit;
     private final ArrayList<Double> pm10means;
     private final Object propertySync = new Object();
+    private final static Logger LOGGER = Logger.getLogger(DroneProcess.class.getName());
 
 
-    public DroneProcess(int id, int port, String URI_AdmServer) throws MqttException {
+    public DroneProcess(int id, int port, String URI_AdmServer, String broker) throws MqttException {
         this.id = id;
         this.port = port;
         this.URI_AdmServer = URI_AdmServer;
@@ -57,6 +59,7 @@ public class DroneProcess {
         this.quit = new Quit();
         this.pm10means = new ArrayList<>();
         this.dronesList = new ListDrone();
+        this.broker = broker;
         this.masterProcess = new Master(this);
     }
 
@@ -233,7 +236,7 @@ public class DroneProcess {
     }
 
     public Master getMasterProcess() {
-            return this.masterProcess;
+        return this.masterProcess;
     }
 
     public void makeDelivery(Delivery delivery) throws InterruptedException {
@@ -310,10 +313,10 @@ public class DroneProcess {
     private void recoverFromNodeFailure(Drone drone) throws MqttException {
         synchronized (dronesList) {
             getDronesList().remove(drone);
-            if (getDronesList().size() == 1) {
+            if (getDronesList().size() == 1 && !master) {
                 setMasterNode(getDrone());
                 setMaster(true);
-                getMasterProcess().start();
+                masterProcess.start();
             }
         }
         newNextNode();
@@ -467,8 +470,7 @@ public class DroneProcess {
         System.out.println("Insert a communication port for a drone: ");
         int port = scanner.nextInt();
 
-        DroneProcess drone = new DroneProcess(id, port, "http://localhost:1337");
-        drone.setBroker("tcp://localhost:1883");
+        DroneProcess drone = new DroneProcess(id, port, "http://localhost:1337", "tcp://localhost:1883");
         drone.start();
     }
 }
