@@ -162,9 +162,7 @@ public class DroneProcess {
         return ManagedChannelBuilder.forTarget(drone.getIp() +":"+ drone.getPort()).usePlaintext().build();
     }
 
-    public void setBroker(String broker){ this.broker = broker; }
-
-    private synchronized void insertIntoRing() throws MqttException, InterruptedException {
+    private synchronized void insertIntoRing() throws InterruptedException {
         if(dronesList.getDrones().size() == 1){
             System.out.println("I'm Drone Master");
             this.masterDrone = new Drone(id, "localhost", port);

@@ -36,6 +36,33 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
         responseObserver.onCompleted();
     }
 
+    private void sendPositionToNextDrone(InsertMessage.PositionRequest request) {
+        Context.current().fork().run(() -> {
+            ManagedChannel channel = droneProcess.getChannel(droneProcess.getNextDrone());
+            DroneServiceGrpc.DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
+            stub.sendPosition(request, new StreamObserver<InsertMessage.PositionResponse>() {
+                @Override
+                public void onNext(InsertMessage.PositionResponse value) {}
+
+                @Override
+                public void onError(Throwable t) {
+                    droneProcess.onFailNode(t);
+                    sendPositionToNextDrone(request);
+                }
+
+                @Override
+                public void onCompleted() {
+                    channel.shutdown();
+                }
+            });
+            try {
+                channel.awaitTermination(1, TimeUnit.MINUTES);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
     @Override
     public void sendPosition(InsertMessage.PositionRequest request, StreamObserver<InsertMessage.PositionResponse> responseObserver) {
         InsertMessage.Drone drone = request.getDrone();
@@ -53,15 +80,25 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
         droneProcess.addDronePosition(drone, position);
         System.out.println(droneProcess.getDronesList());
         System.out.println("#*#*#*#*#*#*#*#*#*##*#*#*#*#");
+
+        sendPositionToNextDrone(request);
+        responseObserver.onNext(InsertMessage.PositionResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    private void sendDeliveryToNextDrone(InsertMessage.DeliveryRequest request) {
         Context.current().fork().run(() -> {
             ManagedChannel channel = droneProcess.getChannel(droneProcess.getNextDrone());
             DroneServiceGrpc.DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
-            stub.sendPosition(request, new StreamObserver<InsertMessage.PositionResponse>() {
+            stub.sendDelivery(request, new StreamObserver<InsertMessage.DeliveryResponse>() {
                 @Override
-                public void onNext(InsertMessage.PositionResponse value) {}
+                public void onNext(InsertMessage.DeliveryResponse value) {}
 
                 @Override
-                public void onError(Throwable t) {}
+                public void onError(Throwable t) {
+                    droneProcess.onFailNode(t);
+                    sendDeliveryToNextDrone(request);
+                }
 
                 @Override
                 public void onCompleted() {
@@ -74,8 +111,6 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 e.printStackTrace();
             }
         });
-        responseObserver.onNext(InsertMessage.PositionResponse.newBuilder().build());
-        responseObserver.onCompleted();
     }
 
     @Override
@@ -95,18 +130,28 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             return;
         }
 
+        sendDeliveryToNextDrone(request);
+        responseObserver.onNext(InsertMessage.DeliveryResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    public void sendInfoAfterDeliveryToNextDrone(InsertMessage.InfoAndStatsRequest request){
         Context.current().fork().run(() -> {
             ManagedChannel channel = droneProcess.getChannel(droneProcess.getNextDrone());
             DroneServiceGrpc.DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
-            stub.sendDelivery(request, new StreamObserver<InsertMessage.DeliveryResponse>() {
+            stub.sendInfoAfterDelivery(request, new StreamObserver<InsertMessage.InfoAndStatsResponse>() {
                 @Override
-                public void onNext(InsertMessage.DeliveryResponse value) {}
+                public void onNext(InsertMessage.InfoAndStatsResponse value) {}
 
                 @Override
-                public void onError(Throwable t) {}
+                public void onError(Throwable t) {
+                    droneProcess.onFailNode(t);
+                    sendInfoAfterDeliveryToNextDrone(request);
+                }
 
                 @Override
                 public void onCompleted() {
+                    System.out.println("STATS sent to next drone");
                     channel.shutdown();
                 }
             });
@@ -116,9 +161,8 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 e.printStackTrace();
             }
         });
-        responseObserver.onNext(InsertMessage.DeliveryResponse.newBuilder().build());
-        responseObserver.onCompleted();
     }
+
 
     @Override
     public void sendInfoAfterDelivery(InsertMessage.InfoAndStatsRequest request, StreamObserver<InsertMessage.InfoAndStatsResponse> responseObserver) {
@@ -142,21 +186,29 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             responseObserver.onCompleted();
             return;
         }
-        Context.current().fork().run(() -> {
+
+        sendInfoAfterDeliveryToNextDrone(request);
+        responseObserver.onNext(InsertMessage.InfoAndStatsResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    private void sendElectionToNextDrone(InsertMessage.ElectionRequest message) {
+        Context.current().fork().run(()-> {
             ManagedChannel channel = droneProcess.getChannel(droneProcess.getNextDrone());
+
             DroneServiceGrpc.DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
-            stub.sendInfoAfterDelivery(request, new StreamObserver<InsertMessage.InfoAndStatsResponse>() {
+            stub.election(message, new StreamObserver<InsertMessage.ElectionResponse>() {
                 @Override
-                public void onNext(InsertMessage.InfoAndStatsResponse value) {}
+                public void onNext(InsertMessage.ElectionResponse value) { }
 
                 @Override
-                public void onError(Throwable t) {}
-
-                @Override
-                public void onCompleted() {
-                    System.out.println("STATS sent to next drone");
-                    channel.shutdown();
+                public void onError(Throwable t) {
+                    droneProcess.onFailNode(t);
+                    sendElectionToNextDrone(message);
                 }
+
+                @Override
+                public void onCompleted() { channel.shutdown(); }
             });
             try {
                 channel.awaitTermination(1, TimeUnit.MINUTES);
@@ -164,8 +216,6 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 e.printStackTrace();
             }
         });
-        responseObserver.onNext(InsertMessage.InfoAndStatsResponse.newBuilder().build());
-        responseObserver.onCompleted();
     }
 
     @Override
@@ -204,68 +254,28 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
             message = request;
             droneProcess.setMasterNode(droneProcess.getDrone(message.getId()));
-            Context.current().fork().run(()-> {
-                ManagedChannel channel = droneProcess.getChannel(droneProcess.getNextDrone());
-                DroneServiceGrpc.DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
 
-                Drone drone = droneProcess.getDrone();
-                InsertMessage.PositionRequest position = InsertMessage.PositionRequest
-                        .newBuilder()
-                        .setDrone(InsertMessage.Drone
-                                .newBuilder()
-                                .setIp(drone.getIp())
-                                .setPort(drone.getPort())
-                                .setId(drone.getId())
-                                .build()
-                        )
-                        .setPosition(InsertMessage.Position
-                                .newBuilder()
-                                .setX((int) drone.getPosition().getX())
-                                .setY((int) drone.getPosition().getY())
-                                .build()
-                        )
-                        .build();
-
-                stub.sendPosition(position, new StreamObserver<InsertMessage.PositionResponse>() {
-                    @Override
-                    public void onNext(InsertMessage.PositionResponse value) {}
-
-                    @Override
-                    public void onError(Throwable t) {}
-
-                    @Override
-                    public void onCompleted() {
-                        channel.shutdown();
-                    }
-                });
-                try {
-                    channel.awaitTermination(1, TimeUnit.MINUTES);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            });
+            Drone drone = droneProcess.getDrone();
+            InsertMessage.PositionRequest position = InsertMessage.PositionRequest
+                    .newBuilder()
+                    .setDrone(InsertMessage.Drone
+                            .newBuilder()
+                            .setIp(drone.getIp())
+                            .setPort(drone.getPort())
+                            .setId(drone.getId())
+                            .build()
+                    )
+                    .setPosition(InsertMessage.Position
+                            .newBuilder()
+                            .setX((int) drone.getPosition().getX())
+                            .setY((int) drone.getPosition().getY())
+                            .build()
+                    )
+                    .build();
+            sendPositionToNextDrone(position);
         }
 
-        Context.current().fork().run(()-> {
-            ManagedChannel channel = droneProcess.getChannel(droneProcess.getNextDrone());
-
-            DroneServiceGrpc.DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
-            stub.election(message, new StreamObserver<InsertMessage.ElectionResponse>() {
-                @Override
-                public void onNext(InsertMessage.ElectionResponse value) { }
-
-                @Override
-                public void onError(Throwable t) {}
-
-                @Override
-                public void onCompleted() { channel.shutdown(); }
-            });
-            try {
-                channel.awaitTermination(1, TimeUnit.MINUTES);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        });
+        sendElectionToNextDrone(message);
         responseObserver.onNext(InsertMessage.ElectionResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
