@@ -479,9 +479,29 @@ public class DroneProcess {
         Scanner scanner = new Scanner(System.in);
 
         System.out.print("Insert a integer id of drone: ");
-        int id = scanner.nextInt();
+        int id=-1;
+        boolean isInt = false;
+        while(!isInt){
+           try{
+               id=Integer.parseInt(scanner.nextLine());
+               isInt = true;
+           }catch (NumberFormatException nfe){
+               System.err.println("ERR: Inserire un intero");
+           }
+        }
+
+
         System.out.println("Insert a communication port for a drone: ");
-        int port = scanner.nextInt();
+        int port=-1;
+        isInt = false;
+        while(!isInt){
+            try{
+                port=Integer.parseInt(scanner.nextLine());
+                isInt = true;
+            }catch (NumberFormatException nfe){
+                System.err.println("ERR: Inserire un intero");
+            }
+        }
 
         DroneProcess drone = new DroneProcess(id, port, "http://localhost:1337", "tcp://localhost:1883");
         drone.start();
