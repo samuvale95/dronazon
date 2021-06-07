@@ -14,39 +14,22 @@ public class Master extends Thread{
     private final Buffer<project.sdp.dronazon.Delivery> deliveryQueue;
     private final Buffer<InfoAndStats> infoAndStatsQueue;
     private final ArrayList<InfoAndStats> globalStats;
-    private final MqttClient client;
+    private MqttClient client;
+    private volatile boolean isQuitting;
 
 
 
-    public Master(DroneProcess droneProcess) throws MqttException {
+
+    public Master(DroneProcess droneProcess) {
         this.droneProcess = droneProcess;
         this.deliveryQueue = new Buffer<>();
         this.infoAndStatsQueue = new Buffer<>();
         this.globalStats = new ArrayList<>();
+        this.isQuitting = false;
+    }
 
-        this.client = new MqttClient(droneProcess.getBroker(), MqttClient.generateClientId());
-        MqttConnectOptions options = new MqttConnectOptions();
-        options.setCleanSession(true);
-        client.connect(options);
-
-        client.setCallback(new MqttCallback() {
-            @Override
-            public void connectionLost(Throwable cause) {}
-
-            @Override
-            public void messageArrived(String topic, MqttMessage message) {
-                Gson gson = new Gson();
-                RandomDelivery delivery = gson.fromJson(new String(message.getPayload()), RandomDelivery.class);
-                System.out.println("******* New delivery arrived ********");
-                System.out.println(delivery);
-                System.out.println("*************************************");
-                deliveryQueue.add(delivery);
-            }
-
-            @Override
-            public void deliveryComplete(IMqttDeliveryToken token) {}
-        });
-        client.subscribe(DELIVERY_TOPIC);
+    public boolean isQuitting(){
+        return this.isQuitting;
     }
 
     public Buffer<project.sdp.dronazon.Delivery> getDeliveryQueue() { return this.deliveryQueue; }
@@ -58,6 +41,7 @@ public class Master extends Thread{
     }
 
     public void shutdown() throws MqttException, InterruptedException {
+        this.isQuitting = true;
         client.disconnect();
         client.close();
 
@@ -79,6 +63,33 @@ public class Master extends Thread{
 
     @Override
     public void run() {
+        try{
+            this.client = new MqttClient(droneProcess.getBroker(), MqttClient.generateClientId());
+            MqttConnectOptions options = new MqttConnectOptions();
+            options.setCleanSession(true);
+            client.connect(options);
+
+            client.setCallback(new MqttCallback() {
+                @Override
+                public void connectionLost(Throwable cause) {}
+
+                @Override
+                public void messageArrived(String topic, MqttMessage message) {
+                    Gson gson = new Gson();
+                    RandomDelivery delivery = gson.fromJson(new String(message.getPayload()), RandomDelivery.class);
+                    System.out.println("******* New delivery arrived ********");
+                    System.out.println(delivery);
+                    System.out.println("*************************************");
+                    deliveryQueue.add(delivery);
+                }
+
+                @Override
+                public void deliveryComplete(IMqttDeliveryToken token) {}
+            });
+            client.subscribe(DELIVERY_TOPIC);
+        }catch (MqttException e){
+            e.printStackTrace();
+        }
         droneProcess.setMaster(true);
         new DeliveryHandler(droneProcess).start();
         new InfoAndStatsHandler(droneProcess).start();

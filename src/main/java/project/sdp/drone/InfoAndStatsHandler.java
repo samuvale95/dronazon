@@ -45,7 +45,7 @@ public class InfoAndStatsHandler extends Thread{
                         drone.setPosition(newPosition);
                         drone.setBattery(battery);
                         synchronized (droneProcess.getMasterProcess()) {
-                            if (droneProcess.getMasterProcess().getState() == State.TERMINATED) {
+                            if (droneProcess.getMasterProcess().isQuitting()) {
                                 System.err.println("NOTIFY");
                                 droneProcess.getMasterProcess().notify();
                             }

@@ -40,7 +40,7 @@ public class DroneProcess {
     private Drone masterDrone;
     private Drone nextDrone;
     private final Object nextDroneSync = new Object();
-    private String broker;
+    private final String broker;
     private final Master masterProcess;
     private int deliveryCount = 0;
     private double distance = 0;
@@ -74,6 +74,8 @@ public class DroneProcess {
             list = new ArrayList<>(getDronesList());
         }
         int index = list.indexOf(getDrone());
+        System.err.println("list: " + list);
+        System.err.println("index:" + index);
         synchronized (nextDroneSync) {
             this.nextDrone = list.get((index + 1) % list.size());
         }
@@ -323,6 +325,8 @@ public class DroneProcess {
                 setMasterNode(getDrone());
                 setMaster(true);
                 masterProcess.start();
+                setNextDrone(getDrone());
+                return;
             }
         }
         newNextNode();
@@ -443,6 +447,10 @@ public class DroneProcess {
         }).start();
 
         Executors.newScheduledThreadPool(1).scheduleAtFixedRate(() -> {
+            synchronized (nextDroneSync) {
+                if (getNextDrone().getId() == getDrone().getId()) return;
+            }
+
             System.err.println(getNextDrone());
             ManagedChannel channel = getChannel(getNextDrone());
             DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
