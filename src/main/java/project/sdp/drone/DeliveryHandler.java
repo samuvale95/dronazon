@@ -14,18 +14,12 @@ import java.util.concurrent.TimeUnit;
 public class DeliveryHandler extends Thread{
 
     private final DroneProcess droneProcess;
-    private volatile boolean isAllDroneBusy;
     private volatile boolean isWaitingForNewDrone;
 
 
     public DeliveryHandler(DroneProcess droneProcess){
         this.droneProcess = droneProcess;
-        this.isAllDroneBusy = false;
         this.isWaitingForNewDrone = false;
-    }
-
-    public boolean isAllDroneBusy(){
-        return isAllDroneBusy;
     }
 
     public boolean isWaitingForNewDrone(){
@@ -80,12 +74,21 @@ public class DeliveryHandler extends Thread{
 
             assert delivery != null;
 
+            //TODO modify get delivery drone
             Drone deliveryDrone = getDeliveryDrone(delivery);
 
             //All drone are busy
             if(deliveryDrone == null){
                 droneProcess.getMasterProcess().getDeliveryQueue().add(delivery);
-                continue;
+                synchronized (droneProcess.getMasterProcess().getDeliveryHandler()){
+                    try {
+                        isWaitingForNewDrone = true;
+                        System.err.println("Waiting on new delivery drone!");
+                        droneProcess.getMasterProcess().getDeliveryHandler().wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
             }
 
             InsertMessage.Drone droneTarget = InsertMessage.Drone

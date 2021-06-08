@@ -123,10 +123,14 @@ public class DroneProcess {
                 }
             }
             if (!exist) {
+                System.err.println("New Drone enter into Ring");
                 Drone d = new Drone(drone.getId(), drone.getIp(), drone.getPort());
                 d.setPosition(new Point(position.getX(), position.getY()));
                 dronesList.add(d);
                 Collections.sort(dronesList.getDrones());
+                synchronized (masterProcess.getDeliveryHandler()){
+                    masterProcess.getDeliveryHandler().notify();
+                }
             }
         }
     }

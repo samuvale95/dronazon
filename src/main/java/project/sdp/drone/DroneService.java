@@ -9,6 +9,7 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 import project.sdp.server.beans.Drone;
 
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
 public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
@@ -179,18 +180,52 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
         if(droneProcess.getDrone().getId() == request.getDroneTarget()){
             System.out.println("PRINT MESSAGE");
             System.out.println(request);
-            droneProcess.getMasterProcess().getInfoAndStatsQueue().add(
-                    new InfoAndStats(request.getDeliveryTimeStamp(),
-                            new Point(request.getNewPosition().getX(),
-                                    request.getNewPosition().getY()
-                            ),
-                            request.getBattery(),
-                            request.getDistanceRoutes(),
-                            request.getAirPollutionList(),
-                            request.getCallerDrone(),
-                            request.getDeliveryNumber()
-                    )
+
+            InfoAndStats infoAndStats = new InfoAndStats(request.getDeliveryTimeStamp(),
+                    new Point(request.getNewPosition().getX(),
+                            request.getNewPosition().getY()
+                    ),
+                    request.getBattery(),
+                    request.getDistanceRoutes(),
+                    request.getAirPollutionList(),
+                    request.getCallerDrone(),
+                    request.getDeliveryNumber()
             );
+
+            droneProcess.getMasterProcess().getInfoAndStatsQueue().add( infoAndStats );
+
+            int callerDroneId = infoAndStats.getCallerDrone();
+            Point newPosition = infoAndStats.getNewPosition();
+            int battery = infoAndStats.getBattery();
+
+            ArrayList<Drone> listDrone;
+            synchronized (droneProcess.getDronesList()) {
+                listDrone = new ArrayList<>(droneProcess.getDronesList());
+
+
+                System.out.println(infoAndStats);
+                for (Drone drone: listDrone) {
+                    if (drone.getId() == callerDroneId) {
+                        drone.setCommittedToDelivery(false);
+                        drone.setPosition(newPosition);
+                        drone.setBattery(battery);
+                    }
+                }
+            }
+
+            synchronized (droneProcess.getMasterProcess().getDeliveryHandler()){
+                if(droneProcess.getMasterProcess().getDeliveryHandler().isWaitingForNewDrone()){
+                    droneProcess.getMasterProcess().getDeliveryHandler().notify();
+                }
+            }
+
+            synchronized (droneProcess.getMasterProcess()) {
+                if (droneProcess.getMasterProcess().isQuitting()) {
+                    System.err.println("NOTIFY");
+                    droneProcess.getMasterProcess().notify();
+                }
+            }
+
             responseObserver.onNext(InsertMessage.InfoAndStatsResponse.newBuilder().build());
             responseObserver.onCompleted();
             return;

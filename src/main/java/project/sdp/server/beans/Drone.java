@@ -72,7 +72,7 @@ public class Drone implements Comparable<Drone> {
     public String toString() {
         return "Drone{" +
                 "id=" + id +
-                ", ip='" + ip + '\'' +
+                ", ip='" + ip +
                 ", port=" + port +
                 ", position=" + position +
                 ", committedToDelivery=" + committedToDelivery +
