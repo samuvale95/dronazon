@@ -51,7 +51,7 @@ public class Master extends Thread{
             list = new ArrayList<>(droneProcess.getDronesList());
         }
 
-        while(list.stream().map(Drone::getCommittedToDelivery).reduce(false, (d1, d2) -> d1||d2 )){
+        while(list.stream().map(Drone::hasValidPosition).reduce(true, (d1, d2) -> d1&&d2 )){
             synchronized (this) {
                 System.err.println("WAITING");
                 this.wait();

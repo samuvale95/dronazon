@@ -49,7 +49,7 @@ public class DroneProcess {
     private final static Logger LOGGER = Logger.getLogger(DroneProcess.class.getName());
 
 
-    public DroneProcess(int id, int port, String URI_AdmServer, String broker) throws MqttException {
+    public DroneProcess(int id, int port, String URI_AdmServer, String broker) {
         this.id = id;
         this.port = port;
         this.URI_AdmServer = URI_AdmServer;
@@ -391,6 +391,10 @@ public class DroneProcess {
     private void startPM10Sensor() {
         SensorBuffer sensorBuffer = new SensorBuffer(buffer -> pm10means.add(((SensorBuffer) buffer).readAllAndClean().stream().map(Measurement::getValue).reduce(0.0, Double::sum)/8.0));
         new PM10Simulator(sensorBuffer).start();
+    }
+
+    public boolean isMaster() {
+        return master;
     }
 
     private void close() throws MqttException, InterruptedException {

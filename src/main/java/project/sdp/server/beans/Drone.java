@@ -14,14 +14,14 @@ public class Drone implements Comparable<Drone> {
     private int port;
     @JsonIgnore
     private Point position;
-    private boolean committedToDelivery;
+    private boolean hasValidPosition;
     private int battery;
 
     public Drone(int id, String ip, int port){
         this.id = id;
         this.ip = ip;
         this.port = port;
-        this.committedToDelivery = false;
+        this.hasValidPosition = false;
         this.battery = 100;
     }
 
@@ -47,12 +47,8 @@ public class Drone implements Comparable<Drone> {
         this.ip = ip;
     }
 
-    public boolean getCommittedToDelivery() {
-        return committedToDelivery;
-    }
-
-    public void setCommittedToDelivery(Boolean committedToDelivery) {
-        this.committedToDelivery = committedToDelivery;
+    public boolean hasValidPosition() {
+        return this.hasValidPosition;
     }
 
     public void setBattery(int battery) {
@@ -75,7 +71,7 @@ public class Drone implements Comparable<Drone> {
                 ", ip='" + ip +
                 ", port=" + port +
                 ", position=" + position +
-                ", committedToDelivery=" + committedToDelivery +
+                ", hasValidPosition=" + hasValidPosition +
                 '}';
     }
 
@@ -83,8 +79,13 @@ public class Drone implements Comparable<Drone> {
         return position;
     }
 
+    public void invalidatePosition() {
+        this.hasValidPosition = false;
+    }
+
     public void setPosition(Point position) {
         this.position = position;
+        this.hasValidPosition = true;
     }
 
     @Override

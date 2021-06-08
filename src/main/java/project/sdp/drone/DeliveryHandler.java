@@ -34,7 +34,7 @@ public class DeliveryHandler extends Thread{
         ArrayList<Drone> possibleDrones = new ArrayList<>();
 
         for (Drone d: listDrone) {
-            if (!d.getCommittedToDelivery())
+            if (d.hasValidPosition())
                 possibleDrones.add(d);
         }
 
@@ -51,7 +51,7 @@ public class DeliveryHandler extends Thread{
 
         Drone result = res.orElse(null).getKey();
 
-        result.setCommittedToDelivery(true);
+        result.invalidatePosition();
         System.out.println("\n");
         System.out.println("Next Delivery Drone: " + result);
         System.out.println("List Drone: ");
@@ -85,12 +85,14 @@ public class DeliveryHandler extends Thread{
                         isWaitingForNewDrone = true;
                         System.err.println("Waiting on new delivery drone!");
                         droneProcess.getMasterProcess().getDeliveryHandler().wait();
+                        continue;
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
                 }
             }
 
+            assert deliveryDrone != null;
             InsertMessage.Drone droneTarget = InsertMessage.Drone
                     .newBuilder()
                     .setId(deliveryDrone.getId())

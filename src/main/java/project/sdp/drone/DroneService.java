@@ -35,12 +35,6 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
         responseObserver.onNext(InsertMessage.InsertRingResponse.newBuilder().setNextDrone(droneMessage).setMasterDrone(droneMasterMessage).build());
         responseObserver.onCompleted();
-
-        /*synchronized (droneProcess.getMasterProcess().getDeliveryHandler()) {
-            if(droneProcess.getMasterProcess().getDeliveryHandler().isWaitingForNewDrone()) {
-                droneProcess.getMasterProcess().getDeliveryHandler().notify();
-            }
-        }*/
     }
 
     private void sendPositionToNextDrone(InsertMessage.PositionRequest request) {
@@ -76,18 +70,17 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
         InsertMessage.Drone drone = request.getDrone();
         InsertMessage.Position position = request.getPosition();
 
-        if(drone.getId() == droneProcess.getDrone().getId()){
+        if(droneProcess.isMaster()){
+            System.out.println("#*#*#*#*#*#*#*#*#*##*#*#*#*#");
+            System.out.println("SET POSITION");
+            System.out.println(droneProcess.getDronesList());
+            droneProcess.addDronePosition(drone, position);
+            System.out.println(droneProcess.getDronesList());
+            System.out.println("#*#*#*#*#*#*#*#*#*##*#*#*#*#");
             responseObserver.onNext(InsertMessage.PositionResponse.newBuilder().build());
             responseObserver.onCompleted();
             return;
         }
-
-        System.out.println("#*#*#*#*#*#*#*#*#*##*#*#*#*#");
-        System.out.println("SET POSITION");
-        System.out.println(droneProcess.getDronesList());
-        droneProcess.addDronePosition(drone, position);
-        System.out.println(droneProcess.getDronesList());
-        System.out.println("#*#*#*#*#*#*#*#*#*##*#*#*#*#");
 
         sendPositionToNextDrone(request);
         responseObserver.onNext(InsertMessage.PositionResponse.newBuilder().build());
@@ -206,7 +199,6 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 System.out.println(infoAndStats);
                 for (Drone drone: listDrone) {
                     if (drone.getId() == callerDroneId) {
-                        drone.setCommittedToDelivery(false);
                         drone.setPosition(newPosition);
                         drone.setBattery(battery);
                     }
