@@ -321,10 +321,12 @@ public class DroneProcess {
     private void recoverFromNodeFailure(Drone drone) throws MqttException {
         synchronized (dronesList) {
             getDronesList().remove(drone);
-            if (getDronesList().size() == 1 && !master) {
-                setMasterNode(getDrone());
-                setMaster(true);
-                masterProcess.start();
+            if (getDronesList().size() == 1) {
+                if(!master) {
+                    setMasterNode(getDrone());
+                    setMaster(true);
+                    masterProcess.start();
+                }
                 setNextDrone(getDrone());
                 return;
             }
@@ -341,18 +343,21 @@ public class DroneProcess {
     public void setMasterNode(Drone drone) { this.masterDrone = drone; }
 
     public void onFailNode(Throwable t) {
+        System.err.println("ERROR, next done failed " + getNextDrone());
         try {
             Drone failNode;
             synchronized (nextDroneSync) {
                 failNode = getNextDrone();
             }
             if (t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
+                System.err.println("Setting new next node");
                 recoverFromNodeFailure(failNode);
-                System.err.println("new next Drone: " + getNextDrone());
             }
 
-            if (failNode.getId() == getMasterDrone().getId())
+            if (failNode.getId() == getMasterDrone().getId()) {
+                System.err.println("Starting new election");
                 startNewElection();
+            }
 
         } catch (InterruptedException | MqttException e) {
             e.printStackTrace();
@@ -407,7 +412,7 @@ public class DroneProcess {
         System.exit(0);
     }
 
-    public void start() throws IOException, MqttException, InterruptedException {
+    public void start() throws IOException, InterruptedException {
         registerToServer();
 
         //Start gRPC server
@@ -424,6 +429,7 @@ public class DroneProcess {
 
         Executors.newScheduledThreadPool(1).scheduleAtFixedRate(() -> {
             System.out.println("\n");
+            System.out.println("PRINTING DRONE INFO");
             System.out.println("Drone id: " + id);
             System.out.println("Number of delivery: " + deliveryCount);
             System.out.println("Next drone: " + nextDrone);

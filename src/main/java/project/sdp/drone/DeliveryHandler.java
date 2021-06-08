@@ -14,9 +14,22 @@ import java.util.concurrent.TimeUnit;
 public class DeliveryHandler extends Thread{
 
     private final DroneProcess droneProcess;
+    private volatile boolean isAllDroneBusy;
+    private volatile boolean isWaitingForNewDrone;
+
 
     public DeliveryHandler(DroneProcess droneProcess){
         this.droneProcess = droneProcess;
+        this.isAllDroneBusy = false;
+        this.isWaitingForNewDrone = false;
+    }
+
+    public boolean isAllDroneBusy(){
+        return isAllDroneBusy;
+    }
+
+    public boolean isWaitingForNewDrone(){
+        return isWaitingForNewDrone;
     }
 
     private Drone getDeliveryDrone(Delivery delivery) {

@@ -16,8 +16,9 @@ public class Master extends Thread{
     private final ArrayList<InfoAndStats> globalStats;
     private MqttClient client;
     private volatile boolean isQuitting;
-
-
+    private  DeliveryHandler deliveryHandler;
+    private  InfoAndStatsHandler infoAndStatsHandler;
+    private  StatisticsSender statisticsSender;
 
 
     public Master(DroneProcess droneProcess) {
@@ -61,6 +62,10 @@ public class Master extends Thread{
         }
     }
 
+    public DeliveryHandler getDeliveryHandler(){
+        return this.deliveryHandler;
+    }
+
     @Override
     public void run() {
         try{
@@ -90,10 +95,16 @@ public class Master extends Thread{
         }catch (MqttException e){
             e.printStackTrace();
         }
+        
         droneProcess.setMaster(true);
-        new DeliveryHandler(droneProcess).start();
-        new InfoAndStatsHandler(droneProcess).start();
-        new StatisticsSender(droneProcess).start();
+
+        this.deliveryHandler = new DeliveryHandler(droneProcess);
+        this.infoAndStatsHandler = new InfoAndStatsHandler(droneProcess);
+        this.statisticsSender = new StatisticsSender(droneProcess);
+        
+        this.deliveryHandler.start();
+        this.infoAndStatsHandler.start();
+        this.statisticsSender.start();
     }
 
 }

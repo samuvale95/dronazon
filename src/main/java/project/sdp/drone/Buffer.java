@@ -20,6 +20,10 @@ public class Buffer<E> {
         return queue.remove(queue.size()-1);
     }
 
+    public synchronized int size(){
+        return queue.size();
+    }
+
     @Override
     public String toString() {
         return "Buffer{" +

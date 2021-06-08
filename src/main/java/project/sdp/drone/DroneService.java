@@ -34,6 +34,12 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
         responseObserver.onNext(InsertMessage.InsertRingResponse.newBuilder().setNextDrone(droneMessage).setMasterDrone(droneMasterMessage).build());
         responseObserver.onCompleted();
+
+        /*synchronized (droneProcess.getMasterProcess().getDeliveryHandler()) {
+            if(droneProcess.getMasterProcess().getDeliveryHandler().isWaitingForNewDrone()) {
+                droneProcess.getMasterProcess().getDeliveryHandler().notify();
+            }
+        }*/
     }
 
     private void sendPositionToNextDrone(InsertMessage.PositionRequest request) {
@@ -46,6 +52,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
                 @Override
                 public void onError(Throwable t) {
+                    System.err.println("Send position");
                     droneProcess.onFailNode(t);
                     sendPositionToNextDrone(request);
                 }
@@ -96,6 +103,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
                 @Override
                 public void onError(Throwable t) {
+                    System.err.println("Send delivery");
                     droneProcess.onFailNode(t);
                     sendDeliveryToNextDrone(request);
                 }
@@ -145,6 +153,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
                 @Override
                 public void onError(Throwable t) {
+                    System.err.println("Send info");
                     droneProcess.onFailNode(t);
                     sendInfoAfterDeliveryToNextDrone(request);
                 }
@@ -194,6 +203,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
     private void sendElectionToNextDrone(InsertMessage.ElectionRequest message) {
         Context.current().fork().run(()-> {
+            System.err.println("Sending election to: " + droneProcess.getNextDrone());
             ManagedChannel channel = droneProcess.getChannel(droneProcess.getNextDrone());
 
             DroneServiceGrpc.DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
@@ -202,13 +212,13 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 public void onNext(InsertMessage.ElectionResponse value) { }
 
                 @Override
-                public void onError(Throwable t) {
-                    droneProcess.onFailNode(t);
-                    sendElectionToNextDrone(message);
-                }
+                public void onError(Throwable t) { }
 
                 @Override
-                public void onCompleted() { channel.shutdown(); }
+                public void onCompleted() {
+                    System.err.println("COMPLETE SEND ELECTION");
+                    channel.shutdown();
+                }
             });
             try {
                 channel.awaitTermination(1, TimeUnit.MINUTES);
@@ -224,7 +234,8 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
         if(request.getType().equals("ELECTION")) {
             System.err.println("ELECTION IN ACTION");
-            if (request.getBattery() == droneProcess.getDrone().getBattery() && request.getId() == droneProcess.getDrone().getId()) {
+            if (request.getId() == droneProcess.getDrone().getId()) {
+                System.err.println("ELECTED " + droneProcess.getDrone().getId() + " drone" );
                 message = InsertMessage.ElectionRequest
                         .newBuilder()
                         .setId(droneProcess.getDrone().getId())
@@ -245,12 +256,15 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                         .build();
             }
         }else{
-            if(request.getBattery() == droneProcess.getDrone().getBattery() && request.getId() == droneProcess.getDrone().getId()){
-                System.err.println("SET NEW MASTER");
+            System.err.println("ELECTED RECEIVED ON DRONE " + droneProcess.getDrone().getId());
+            if(request.getId() == droneProcess.getDrone().getId()){
+                System.err.println("SET NEW MASTER on Master");
+                droneProcess.setMaster(true);
                 droneProcess.setMasterNode(new Drone(droneProcess.getDrone().getId(), droneProcess.getDrone().getIp(), droneProcess.getDrone().getPort()));
                 droneProcess.getMasterProcess().start();
                 return;
             }
+
 
             message = request;
             droneProcess.setMasterNode(droneProcess.getDrone(message.getId()));
