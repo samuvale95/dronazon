@@ -408,12 +408,20 @@ public class DroneProcess {
         System.exit(0);
     }
 
-    public void start() throws IOException, InterruptedException {
+    public void start() throws InterruptedException, MqttException {
         registerToServer();
 
         //Start gRPC server
-        Server server = ServerBuilder.forPort(port).addService(new DroneService(this)).build();
-        server.start();
+        try {
+            Server server = ServerBuilder.forPort(port).addService(new DroneService(this)).build();
+            server.start();
+        }catch (IOException e){
+            if(e.getMessage().equals("Failed to bind")){
+                System.err.println("Error on bind PORT, retry with another one");
+                close();
+            }
+        }
+
 
         insertIntoRing();
 
