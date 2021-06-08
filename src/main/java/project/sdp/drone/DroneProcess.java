@@ -213,28 +213,16 @@ public class DroneProcess {
     }
 
     private Drone getFuturePreviousNode() {
-        ArrayList<Drone> list = new ArrayList<>(getDronesList());
-
-        int start = 0, end = list.size()-1;
-
-        int ans = -1;
-        while (start <= end) {
-            int mid = (start + end) / 2;
-
-            if (list.get(mid).getId() >= id) {
-                end = mid - 1;
-            }
-
-            else {
-                ans = mid;
-                start = mid + 1;
-            }
+        ArrayList<Drone> list;
+        synchronized (dronesList) {
+            list = new ArrayList<>(getDronesList());
         }
-
-        if(ans==-1)
-            return list.get(list.size()-1);
-        else
-            return list.get(ans);
+        int index = list.indexOf(getDrone());
+        System.err.println("list: " + list);
+        System.err.println("index:" + index);
+        synchronized (nextDroneSync) {
+            return list.get((index - 1) % list.size());
+        }
     }
 
     public void setMaster(Boolean state){
