@@ -5,6 +5,7 @@ import com.example.grpc.InsertMessage;
 import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
 import javafx.util.Pair;
+import org.eclipse.paho.client.mqttv3.MqttException;
 import project.sdp.dronazon.Delivery;
 import project.sdp.server.beans.Drone;
 import java.util.ArrayList;
@@ -26,7 +27,7 @@ public class DeliveryHandler extends Thread{
         return isWaitingForNewDrone;
     }
 
-    private Drone getDeliveryDrone(Delivery delivery) {
+    private Drone getDeliveryDrone(Delivery delivery) throws MqttException {
         ArrayList<Drone> listDrone;
         synchronized (droneProcess.getDronesList()) {
             listDrone =  new ArrayList<>(droneProcess.getDronesList());
@@ -36,6 +37,12 @@ public class DeliveryHandler extends Thread{
         for (Drone d: listDrone) {
             if (d.hasValidPosition())
                 possibleDrones.add(d);
+        }
+
+        Drone masterDrone = droneProcess.getMasterDrone();
+        if(possibleDrones.contains(masterDrone) && masterDrone.getBattery()<=20 && droneProcess.getMasterProcess().getDeliveryQueue().size()>1) {
+            droneProcess.getMasterProcess().disconnectMQTT();
+            possibleDrones.remove(masterDrone);
         }
 
         if (possibleDrones.size() == 0) {
@@ -50,6 +57,8 @@ public class DeliveryHandler extends Thread{
         });
 
         Drone result = res.orElse(null).getKey();
+
+
 
         result.invalidatePosition();
         System.out.println("\n");
@@ -74,8 +83,12 @@ public class DeliveryHandler extends Thread{
 
             assert delivery != null;
 
-            //TODO modify get delivery drone
-            Drone deliveryDrone = getDeliveryDrone(delivery);
+            Drone deliveryDrone = null;
+            try {
+                deliveryDrone = getDeliveryDrone(delivery);
+            } catch (MqttException e) {
+                e.printStackTrace();
+            }
 
             //All drone are busy
             if(deliveryDrone == null){

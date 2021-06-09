@@ -43,7 +43,7 @@ public class Master extends Thread{
 
     public void shutdown() throws MqttException, InterruptedException {
         this.isQuitting = true;
-        client.disconnect();
+        disconnectMQTT();
         client.close();
 
         ArrayList<Drone> list;
@@ -60,6 +60,11 @@ public class Master extends Thread{
                 list = new ArrayList<>(droneProcess.getDronesList());
             }
         }
+    }
+
+    public void disconnectMQTT() throws MqttException {
+        if(client.isConnected())
+            client.disconnect();
     }
 
     public DeliveryHandler getDeliveryHandler(){
