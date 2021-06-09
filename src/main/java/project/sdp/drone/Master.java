@@ -41,6 +41,10 @@ public class Master extends Thread{
             return globalStats;
     }
 
+    public void clearGlobalStats() {
+        globalStats.clear();
+    }
+
     public void shutdown() throws MqttException, InterruptedException {
         this.isQuitting = true;
         disconnectMQTT();
@@ -111,5 +115,4 @@ public class Master extends Thread{
         this.infoAndStatsHandler.start();
         this.statisticsSender.start();
     }
-
 }

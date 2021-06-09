@@ -7,6 +7,7 @@ import project.sdp.server.beans.Statistics;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Optional;
 
 public class StatisticsSender extends Thread{
@@ -22,16 +23,22 @@ public class StatisticsSender extends Thread{
         ArrayList<InfoAndStats> globalStats;
         synchronized (master.getGlobalStats()) {
             globalStats = new ArrayList<>(master.getGlobalStats());
+            master.clearGlobalStats();
         }
+
+        HashSet<Integer> set = new HashSet<>();
+        globalStats.stream().map(InfoAndStats::getCallerDrone).forEach(set::add);
+        double activeDeliveryDrone = set.size();
+
         Double distance = globalStats.stream().map(InfoAndStats::getDistanceRoutes).reduce(0.0, Double::sum);
-        int deliveryNumber = globalStats.stream().map(InfoAndStats::getDeliveryNumber).reduce(0, Integer::sum);
+        int deliveryNumber = globalStats.size();
         double pollution = globalStats.stream().map(stats -> {
             Optional<Double> sum = stats.getAirPollution().stream().reduce(Double::sum);
             return sum.map(aDouble -> aDouble / (double) stats.getAirPollution().size()).orElse(0.0);
         }).reduce(0.0, Double::sum);
         int battery = globalStats.stream().map(InfoAndStats::getBattery).reduce(0, Integer::sum);
-        double statsNumber = globalStats.size();
-        return new Statistics(deliveryNumber/statsNumber, distance/statsNumber, pollution/statsNumber, battery/statsNumber, new Timestamp(System.currentTimeMillis()).toString());
+
+        return new Statistics(deliveryNumber/activeDeliveryDrone, distance/activeDeliveryDrone, pollution/activeDeliveryDrone, battery/activeDeliveryDrone, new Timestamp(System.currentTimeMillis()).toString());
     }
 
     private void sendGlobalStatistics() {

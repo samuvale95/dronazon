@@ -1,10 +1,5 @@
 package project.sdp.drone;
 
-import project.sdp.server.beans.Drone;
-
-import java.awt.*;
-import java.util.ArrayList;
-
 public class InfoAndStatsHandler extends Thread{
 
     private final DroneProcess droneProcess;
@@ -32,7 +27,6 @@ public class InfoAndStatsHandler extends Thread{
             synchronized (droneProcess.getMasterProcess().getGlobalStats()) {
                 droneProcess.getMasterProcess().getGlobalStats().add(infoAndStats);
             }
-
         }
     }
 }
