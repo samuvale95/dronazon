@@ -13,19 +13,15 @@ public class Master extends Thread{
     private final DroneProcess droneProcess;
     private final Buffer<project.sdp.dronazon.Delivery> deliveryQueue;
     private final Buffer<InfoAndStats> infoAndStatsQueue;
-    private final ArrayList<InfoAndStats> globalStats;
     private MqttClient client;
     private volatile boolean isQuitting;
     private  DeliveryHandler deliveryHandler;
-    private  InfoAndStatsHandler infoAndStatsHandler;
-    private  StatisticsSender statisticsSender;
 
 
     public Master(DroneProcess droneProcess) {
         this.droneProcess = droneProcess;
         this.deliveryQueue = new Buffer<>();
         this.infoAndStatsQueue = new Buffer<>();
-        this.globalStats = new ArrayList<>();
         this.isQuitting = false;
     }
 
@@ -36,14 +32,6 @@ public class Master extends Thread{
     public Buffer<project.sdp.dronazon.Delivery> getDeliveryQueue() { return this.deliveryQueue; }
 
     public Buffer<InfoAndStats> getInfoAndStatsQueue(){ return this.infoAndStatsQueue; }
-
-    public ArrayList<InfoAndStats> getGlobalStats() {
-            return globalStats;
-    }
-
-    public void clearGlobalStats() {
-        globalStats.clear();
-    }
 
     public void shutdown() throws MqttException, InterruptedException {
         this.isQuitting = true;
@@ -108,11 +96,8 @@ public class Master extends Thread{
         droneProcess.setMaster(true);
 
         this.deliveryHandler = new DeliveryHandler(droneProcess);
-        this.infoAndStatsHandler = new InfoAndStatsHandler(droneProcess);
-        this.statisticsSender = new StatisticsSender(droneProcess);
-        
         this.deliveryHandler.start();
-        this.infoAndStatsHandler.start();
-        this.statisticsSender.start();
+
+        new StatisticsSender(droneProcess).start();
     }
 }

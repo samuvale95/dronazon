@@ -20,6 +20,13 @@ public class Buffer<E> {
         return queue.remove(queue.size()-1);
     }
 
+    public synchronized ArrayList<E> getAll() throws InterruptedException {
+        while(queue.size() == 0){this.wait();};
+        ArrayList<E> result = new ArrayList<>(queue);
+        queue.clear();
+        return result;
+    }
+
     public synchronized int size(){
         return queue.size();
     }

@@ -9,21 +9,21 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class StatisticsSender extends Thread{
     private final DroneProcess droneProcess;
-    private final Master master;
 
     public StatisticsSender(DroneProcess droneProcess){
         this.droneProcess = droneProcess;
-        this.master = droneProcess.getMasterProcess();
     }
 
-    private Statistics calculateGlobalStatistics() {
+    private Statistics calculateGlobalStatistics() throws InterruptedException {
         ArrayList<InfoAndStats> globalStats;
-        synchronized (master.getGlobalStats()) {
-            globalStats = new ArrayList<>(master.getGlobalStats());
-            master.clearGlobalStats();
+
+        synchronized (droneProcess.getMasterProcess().getInfoAndStatsQueue()) {
+            globalStats = droneProcess.getMasterProcess().getInfoAndStatsQueue().getAll();
         }
 
         HashSet<Integer> set = new HashSet<>();
@@ -41,11 +41,7 @@ public class StatisticsSender extends Thread{
         return new Statistics(deliveryNumber/activeDeliveryDrone, distance/activeDeliveryDrone, pollution/activeDeliveryDrone, battery/activeDeliveryDrone, new Timestamp(System.currentTimeMillis()).toString());
     }
 
-    private void sendGlobalStatistics() {
-        synchronized (master.getGlobalStats()) {
-            if (master.getGlobalStats().size() == 0) return;
-        }
-
+    private void sendGlobalStatistics() throws InterruptedException {
         Client client = Client.create();
 
         Statistics statistics = calculateGlobalStatistics();
@@ -63,13 +59,12 @@ public class StatisticsSender extends Thread{
 
     @Override
     public void run() {
-        while(true){
-            sendGlobalStatistics();
+        Executors.newScheduledThreadPool(1).scheduleAtFixedRate(() -> {
             try {
-                Thread.sleep(10*1000);
+                sendGlobalStatistics();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-        }
+        }, 0, 10*1000, TimeUnit.MILLISECONDS);
     }
 }
