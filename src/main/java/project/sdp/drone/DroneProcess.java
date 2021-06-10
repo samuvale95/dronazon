@@ -72,11 +72,15 @@ public class DroneProcess {
         ArrayList<Drone> list = getDronesListCopy();
 
         int index = list.indexOf(getDrone());
-        System.err.println("list: " + list);
-        System.err.println("index:" + index);
+
+        LOGGER.info("newNextNode()");
+        LOGGER.info("prev: " + this.nextDrone);
+
         synchronized (nextDroneSync) {
             this.nextDrone = list.get((index + 1) % list.size());
         }
+
+        LOGGER.info("nextDrone: " + this.nextDrone);
     }
 
     private ArrayList<Drone> getDronesListCopy() {
@@ -87,7 +91,9 @@ public class DroneProcess {
         return list;
     }
 
-    public Drone getMasterDrone(){return this.masterDrone;}
+    public Drone getMasterDrone(){
+        return this.masterDrone;
+    }
 
     public Drone getNextDrone() {
         synchronized (nextDroneSync){
@@ -129,8 +135,9 @@ public class DroneProcess {
                 }
             }
             if (!exist) {
-                System.err.println("New Drone enter into Ring");
+                LOGGER.info("addDronePosition()");
                 Drone d = new Drone(drone.getId(), drone.getIp(), drone.getPort());
+                LOGGER.info("New drone enter into RING " + d);
                 d.setPosition(new Point(position.getX(), position.getY()));
                 dronesList.add(d);
                 Collections.sort(dronesList.getDrones());
@@ -184,8 +191,8 @@ public class DroneProcess {
 
 
         Drone drone = getFuturePreviousNode();
-        System.out.println("Try to communicate with: ");
-        System.out.println(drone);
+        LOGGER.info("insertIntoRing()");
+        LOGGER.info("Try to communicate with: " + drone);
         ManagedChannel channel = getChannel(drone);
         DroneServiceBlockingStub blockingStub = DroneServiceGrpc.newBlockingStub(channel);
 
@@ -241,7 +248,8 @@ public class DroneProcess {
     }
 
     public void makeDelivery(Delivery delivery) throws InterruptedException, MqttException {
-        System.out.println("****+ Making a delivery *******");
+        LOGGER.info("makeDelivery()");
+        LOGGER.info("****+ Making a delivery *******");
         try {
             Thread.sleep(5000);
             synchronized (propertySync) {
@@ -253,9 +261,8 @@ public class DroneProcess {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        System.out.println("******** Delivery End *********");
+        LOGGER.info("******** Delivery End *********");
 
-        System.out.println("\n");
         InsertMessage.InfoAndStatsRequest infoAndStatsMessage;
         synchronized (this) {
             infoAndStatsMessage = InsertMessage.InfoAndStatsRequest
@@ -290,27 +297,28 @@ public class DroneProcess {
             }
         }
 
-            final ManagedChannel channel = getChannel(nextDrone);
-            DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
-            stub.sendInfoAfterDelivery(infoAndStatsMessage, new StreamObserver<InsertMessage.InfoAndStatsResponse>() {
-                @Override
-                public void onNext(InsertMessage.InfoAndStatsResponse value) {
-                }
+        LOGGER.info("Sending stats to Master");
+        final ManagedChannel channel = getChannel(nextDrone);
+        DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
+        stub.sendInfoAfterDelivery(infoAndStatsMessage, new StreamObserver<InsertMessage.InfoAndStatsResponse>() {
+            @Override
+            public void onNext(InsertMessage.InfoAndStatsResponse value) {
+            }
 
-                @Override
-                public void onError(Throwable t) {
-                    onFailNode(t);
-                }
+            @Override
+            public void onError(Throwable t) {
+                onFailNode(t);
+            }
 
-                @Override
-                public void onCompleted() {
-                    channel.shutdown();
-                }
-            });
+            @Override
+            public void onCompleted() {
+                channel.shutdown();
+            }
+        });
+        channel.awaitTermination(1, TimeUnit.MINUTES);
 
-            channel.awaitTermination(1, TimeUnit.MINUTES);
-            if(battery < 15)
-                this.close();
+        if(battery < 15)
+            this.close();
     }
 
     private void recoverFromNodeFailure(Drone drone) throws MqttException {
@@ -338,19 +346,19 @@ public class DroneProcess {
     public void setMasterNode(Drone drone) { this.masterDrone = drone; }
 
     public void onFailNode(Throwable t) {
-        System.err.println("ERROR, next done failed " + getNextDrone());
+        LOGGER.info("ERROR, next done failed " + getNextDrone());
         try {
             Drone failNode;
             synchronized (nextDroneSync) {
                 failNode = getNextDrone();
             }
             if (t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
-                System.err.println("Setting new next node");
+                LOGGER.info("Setting new next node");
                 recoverFromNodeFailure(failNode);
             }
 
             if (failNode.getId() == getMasterDrone().getId()) {
-                System.err.println("Starting new election");
+                LOGGER.info("Starting new election");
                 startNewElection();
             }
 
@@ -407,7 +415,7 @@ public class DroneProcess {
         WebResource webResource = client.resource(URI_AdmServer + "/dronazon/drone/remove/"+id);
         ClientResponse clientResponse = webResource.type("application/json").delete(ClientResponse.class);
         if(clientResponse.getStatus() == 200)
-            System.out.println("Drone Removed");
+            LOGGER.info("Drone Removed");
         System.exit(0);
     }
 
@@ -473,7 +481,7 @@ public class DroneProcess {
 
                 @Override
                 public void onError(Throwable t) {
-                    System.err.println("Fail on PING");
+                    LOGGER.info("Fail on PING " + nextDrone);
                     onFailNode(t);
                 }
 
