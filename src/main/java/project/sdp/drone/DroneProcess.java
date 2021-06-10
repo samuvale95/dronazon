@@ -69,16 +69,22 @@ public class DroneProcess {
     }
 
     public void newNextNode(){
-        ArrayList<Drone> list;
-        synchronized (dronesList) {
-            list = new ArrayList<>(getDronesList());
-        }
+        ArrayList<Drone> list = getDronesListCopy();
+
         int index = list.indexOf(getDrone());
         System.err.println("list: " + list);
         System.err.println("index:" + index);
         synchronized (nextDroneSync) {
             this.nextDrone = list.get((index + 1) % list.size());
         }
+    }
+
+    private ArrayList<Drone> getDronesListCopy() {
+        ArrayList<Drone> list;
+        synchronized (dronesList) {
+            list = new ArrayList<>(getDronesList());
+        }
+        return list;
     }
 
     public Drone getMasterDrone(){return this.masterDrone;}
@@ -217,10 +223,7 @@ public class DroneProcess {
     }
 
     private Drone getFuturePreviousNode() {
-        ArrayList<Drone> list;
-        synchronized (dronesList) {
-            list = new ArrayList<>(getDronesList());
-        }
+        ArrayList<Drone> list = getDronesListCopy();
         int index = list.indexOf(getDrone());
         System.err.println("list: " + list);
         System.err.println("index:" + index);
