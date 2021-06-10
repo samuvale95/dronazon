@@ -12,13 +12,13 @@ import java.util.ArrayList;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-public class DeliveryHandler extends Thread{
+public class DeliveryManager extends Thread{
 
     private final DroneProcess droneProcess;
     private volatile boolean isWaitingForNewDrone;
 
 
-    public DeliveryHandler(DroneProcess droneProcess){
+    public DeliveryManager(DroneProcess droneProcess){
         this.droneProcess = droneProcess;
         this.isWaitingForNewDrone = false;
     }

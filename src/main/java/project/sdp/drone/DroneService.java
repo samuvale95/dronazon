@@ -7,7 +7,6 @@ import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import project.sdp.server.beans.Drone;
-
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;

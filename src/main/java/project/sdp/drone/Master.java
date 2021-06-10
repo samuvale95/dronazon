@@ -15,7 +15,7 @@ public class Master extends Thread{
     private final Buffer<InfoAndStats> infoAndStatsQueue;
     private MqttClient client;
     private volatile boolean isQuitting;
-    private  DeliveryHandler deliveryHandler;
+    private DeliveryManager deliveryManager;
 
 
     public Master(DroneProcess droneProcess) {
@@ -59,8 +59,8 @@ public class Master extends Thread{
             client.disconnect();
     }
 
-    public DeliveryHandler getDeliveryHandler(){
-        return this.deliveryHandler;
+    public DeliveryManager getDeliveryHandler(){
+        return this.deliveryManager;
     }
 
     @Override
@@ -95,8 +95,8 @@ public class Master extends Thread{
         
         droneProcess.setMaster(true);
 
-        this.deliveryHandler = new DeliveryHandler(droneProcess);
-        this.deliveryHandler.start();
+        this.deliveryManager = new DeliveryManager(droneProcess);
+        this.deliveryManager.start();
 
         new StatisticsSender(droneProcess).start();
     }

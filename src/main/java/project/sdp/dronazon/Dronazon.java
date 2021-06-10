@@ -2,11 +2,12 @@ package project.sdp.dronazon;
 
 import com.google.gson.Gson;
 import org.eclipse.paho.client.mqttv3.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class Dronazon extends Thread{
     private final int length;
     private final int height;
-    private MqttClient mqttClient;
     private final String topic;
     private final String broker;
     private final int qos;
@@ -52,8 +53,8 @@ public class Dronazon extends Thread{
             }
         });
 
-
-        while(true){
+        MqttClient finalClient = client;
+        Executors.newScheduledThreadPool(1).scheduleAtFixedRate(() -> {
             Gson gson = new Gson();
             try {
                 MqttMessage message = new MqttMessage();
@@ -61,13 +62,11 @@ public class Dronazon extends Thread{
                 System.out.println(json);
                 message.setPayload(json.getBytes());
                 message.setQos(qos);
-                client.publish(topic, message);
-
-                Thread.sleep(5*1000);
-            } catch (InterruptedException | MqttException e) {
+                finalClient.publish(topic, message);
+            } catch (MqttException e) {
                 e.printStackTrace();
             }
-        }
+        }, 0, 5*1000, TimeUnit.MILLISECONDS);
     }
 
     public static void main(String[] args) {
