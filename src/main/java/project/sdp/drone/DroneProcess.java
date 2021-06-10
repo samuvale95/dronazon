@@ -346,12 +346,16 @@ public class DroneProcess {
     public void setMasterNode(Drone drone) { this.masterDrone = drone; }
 
     public void onFailNode(Throwable t) {
-        LOGGER.info("ERROR, next done failed " + getNextDrone());
         try {
             Drone failNode;
+            LOGGER.info("ERROR, next done failed: " + getNextDrone());
+            LOGGER.info("Master: " + getNextDrone());
+
             synchronized (nextDroneSync) {
                 failNode = getNextDrone();
             }
+
+            LOGGER.info("Failed Node: " + failNode);
             if (t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
                 LOGGER.info("Setting new next node");
                 recoverFromNodeFailure(failNode);

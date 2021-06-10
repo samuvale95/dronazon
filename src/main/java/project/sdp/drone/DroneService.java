@@ -70,12 +70,10 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
         InsertMessage.Position position = request.getPosition();
 
         if(droneProcess.isMaster()){
-            System.out.println("#*#*#*#*#*#*#*#*#*##*#*#*#*#");
             System.out.println("SET POSITION");
             System.out.println(droneProcess.getDronesList());
             droneProcess.addDronePosition(drone, position);
             System.out.println(droneProcess.getDronesList());
-            System.out.println("#*#*#*#*#*#*#*#*#*##*#*#*#*#");
             responseObserver.onNext(InsertMessage.PositionResponse.newBuilder().build());
             responseObserver.onCompleted();
             return;
