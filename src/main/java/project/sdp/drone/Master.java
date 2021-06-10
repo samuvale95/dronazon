@@ -5,6 +5,7 @@ import org.eclipse.paho.client.mqttv3.*;
 import project.sdp.dronazon.RandomDelivery;
 import project.sdp.server.beans.Drone;
 import java.util.ArrayList;
+import java.util.logging.Logger;
 
 
 public class Master extends Thread{
@@ -16,6 +17,7 @@ public class Master extends Thread{
     private MqttClient client;
     private volatile boolean isQuitting;
     private DeliveryManager deliveryManager;
+    private final static Logger LOGGER = Logger.getLogger(DroneProcess.class.getName());
 
 
     public Master(DroneProcess droneProcess) {
@@ -33,7 +35,7 @@ public class Master extends Thread{
 
     public Buffer<InfoAndStats> getInfoAndStatsQueue(){ return this.infoAndStatsQueue; }
 
-    public void shutdown() throws MqttException, InterruptedException {
+    public synchronized void shutdown() throws MqttException, InterruptedException {
         this.isQuitting = true;
         disconnectMQTT();
         client.close();
@@ -43,15 +45,17 @@ public class Master extends Thread{
             list = new ArrayList<>(droneProcess.getDronesList());
         }
 
-        while(list.stream().map(Drone::hasValidPosition).reduce(true, (d1, d2) -> d1&&d2 )){
+        while(!list.stream().map(Drone::hasValidPosition).reduce(true, (d1, d2) -> d1&&d2 )){
+            LOGGER.info("WAITING on Return valid position");
+            LOGGER.info(list.toString());
             synchronized (this) {
-                System.err.println("WAITING");
                 this.wait();
             }
             synchronized (droneProcess.getDronesList()) {
                 list = new ArrayList<>(droneProcess.getDronesList());
             }
         }
+        LOGGER.info("CLOSE MASTER");
     }
 
     public void disconnectMQTT() throws MqttException {
@@ -79,9 +83,9 @@ public class Master extends Thread{
                 public void messageArrived(String topic, MqttMessage message) {
                     Gson gson = new Gson();
                     RandomDelivery delivery = gson.fromJson(new String(message.getPayload()), RandomDelivery.class);
-                    System.out.println("******* New delivery arrived ********");
-                    System.out.println(delivery);
-                    System.out.println("*************************************");
+                    LOGGER.info("******* New delivery arrived ********");
+                    LOGGER.info(delivery.toString());
+                    LOGGER.info("*************************************");
                     deliveryQueue.add(delivery);
                 }
 

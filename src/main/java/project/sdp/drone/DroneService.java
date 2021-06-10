@@ -10,10 +10,12 @@ import project.sdp.server.beans.Drone;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
     private final DroneProcess droneProcess;
+    private final static Logger LOGGER = Logger.getLogger(DroneService.class.getName());
 
     public DroneService(DroneProcess droneProcess) {
         this.droneProcess = droneProcess;
@@ -69,15 +71,16 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
         InsertMessage.Drone drone = request.getDrone();
         InsertMessage.Position position = request.getPosition();
 
-        if(droneProcess.isMaster()){
-            System.out.println("SET POSITION");
-            System.out.println(droneProcess.getDronesList());
-            droneProcess.addDronePosition(drone, position);
-            System.out.println(droneProcess.getDronesList());
+        if(drone.getId() == droneProcess.getDrone().getId()){
             responseObserver.onNext(InsertMessage.PositionResponse.newBuilder().build());
             responseObserver.onCompleted();
             return;
         }
+
+        LOGGER.info("SET POSITION");
+        LOGGER.info(droneProcess.getDronesList().toString());
+        droneProcess.addDronePosition(drone, position);
+        LOGGER.info(droneProcess.getDronesList().toString());
 
         sendPositionToNextDrone(request);
         responseObserver.onNext(InsertMessage.PositionResponse.newBuilder().build());
@@ -122,7 +125,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             Point deliveryPosition = new Point(newDelivery.getDeliveryPoint().getX(), newDelivery.getDeliveryPoint().getY());
             Point takePosition = new Point(newDelivery.getTakePoint().getX(), newDelivery.getTakePoint().getY());
             try {
-                droneProcess.  makeDelivery(new Delivery(request.getDelivery().getId(), takePosition, deliveryPosition));
+                droneProcess.makeDelivery(new Delivery(request.getDelivery().getId(), takePosition, deliveryPosition));
             } catch (InterruptedException | MqttException e) {
                 e.printStackTrace();
             }
@@ -210,7 +213,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
             synchronized (droneProcess.getMasterProcess()) {
                 if (droneProcess.getMasterProcess().isQuitting()) {
-                    System.err.println("NOTIFY");
+                    LOGGER.info("NOTIFY received Statistic");
                     droneProcess.getMasterProcess().notify();
                 }
             }

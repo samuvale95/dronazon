@@ -21,8 +21,9 @@ message Position{
 }
 
 message PositionRequest{
-  optional Drone drone = 1;
-  optional Position position = 2;
+  optional Drone targetDrone = 1;
+  optional Drone drone = 2;
+  optional Position position = 3;
 }
 
 message PositionResponse{}

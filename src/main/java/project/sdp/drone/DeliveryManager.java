@@ -11,11 +11,13 @@ import project.sdp.server.beans.Drone;
 import java.util.ArrayList;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 public class DeliveryManager extends Thread{
 
     private final DroneProcess droneProcess;
     private volatile boolean isWaitingForNewDrone;
+    private final static Logger LOGGER = Logger.getLogger(DeliveryManager.class.getName());
 
 
     public DeliveryManager(DroneProcess droneProcess){
@@ -57,19 +59,15 @@ public class DeliveryManager extends Thread{
         });
 
         Drone result = res.orElse(null).getKey();
-
-
-
         result.invalidatePosition();
-        System.out.println("\n");
-        System.out.println("Next Delivery Drone: " + result);
-        System.out.println("List Drone: ");
-        System.out.println(listDrone);
-        System.out.println("Possible Drone: ");
+
+        LOGGER.info("Next Delivery Drone: " + result);
+        LOGGER.info("List Drone: ");
+        LOGGER.info(listDrone.toString());
+        LOGGER.info("Possible Drone: ");
         for (Drone drone : possibleDrones) {
-            System.out.println(new Pair<>(drone, drone.getPosition().distance(delivery.getTakePoint())));
+            LOGGER.info(new Pair<>(drone, drone.getPosition().distance(delivery.getTakePoint())).toString());
         }
-        System.out.println("\n");
         return result;
     }
 
@@ -96,7 +94,7 @@ public class DeliveryManager extends Thread{
                 synchronized (droneProcess.getMasterProcess().getDeliveryHandler()){
                     try {
                         isWaitingForNewDrone = true;
-                        System.err.println("Waiting on new delivery drone!");
+                        LOGGER.info("Waiting on new delivery drone!");
                         droneProcess.getMasterProcess().getDeliveryHandler().wait();
                         continue;
                     } catch (InterruptedException e) {
@@ -150,12 +148,12 @@ public class DeliveryManager extends Thread{
 
                 @Override
                 public void onCompleted() {
-                    System.out.println("Delivery Sent!");
+                    LOGGER.info("Delivery Sent to " + droneProcess.getNextDrone());
                     channel.shutdown();
                 }
             });
             try {
-                channel.awaitTermination(3, TimeUnit.SECONDS);
+                channel.awaitTermination(1, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

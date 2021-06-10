@@ -209,8 +209,15 @@ public class DroneProcess {
 
         ManagedChannel channel1 = getChannel(nextDrone);
         DroneServiceStub stub = DroneServiceGrpc.newStub(channel1);
+
+        Drone masterDrone = getMasterDrone();
         InsertMessage.Position positionMessage = InsertMessage.Position.newBuilder().setX((int) position.getX()).setY((int) position.getY()).build();
-        stub.sendPosition(InsertMessage.PositionRequest.newBuilder().setDrone(callerDrone).setPosition(positionMessage).build(), new StreamObserver<InsertMessage.PositionResponse>() {
+        stub.sendPosition(InsertMessage.PositionRequest
+                .newBuilder()
+                .setDrone(callerDrone)
+                .setPosition(positionMessage)
+                .build(),
+                new StreamObserver<InsertMessage.PositionResponse>() {
             @Override
             public void onNext(InsertMessage.PositionResponse value) {
 
@@ -280,21 +287,6 @@ public class DroneProcess {
                             .setDroneTarget(masterDrone.getId())
                             .setDeliveryNumber(deliveryCount)
                             .build();
-            if (master) {
-                masterProcess.getInfoAndStatsQueue().add(
-                        new InfoAndStats(infoAndStatsMessage.getDeliveryTimeStamp(),
-                                new Point(infoAndStatsMessage.getNewPosition().getX(),
-                                        infoAndStatsMessage.getNewPosition().getY()
-                                ),
-                                infoAndStatsMessage.getBattery(),
-                                infoAndStatsMessage.getDistanceRoutes(),
-                                infoAndStatsMessage.getAirPollutionList(),
-                                infoAndStatsMessage.getCallerDrone(),
-                                infoAndStatsMessage.getDeliveryNumber()
-                        )
-                );
-                return;
-            }
         }
 
         LOGGER.info("Sending stats to Master");
