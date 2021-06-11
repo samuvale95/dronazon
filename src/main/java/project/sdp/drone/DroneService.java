@@ -76,7 +76,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             responseObserver.onCompleted();
             return;
         }
-        
+
         LOGGER.info("SET POSITION: " + drone);
         LOGGER.info(droneProcess.getDronesList().toString());
         droneProcess.addDronePosition(drone, position);
@@ -169,7 +169,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
     @Override
     public void sendInfoAfterDelivery(InsertMessage.InfoAndStatsRequest request, StreamObserver<InsertMessage.InfoAndStatsResponse> responseObserver) {
-        System.out.println("Message STATS arrived  from previous drone");
+        System.out.println("Message STATS arrived  from previous drone " + request);
         if(droneProcess.getDrone().getId() == request.getDroneTarget()){
             System.out.println("PRINT MESSAGE");
             System.out.println(request);
@@ -213,11 +213,12 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
             synchronized (droneProcess.getMasterProcess()) {
                 if (droneProcess.getMasterProcess().isQuitting()) {
-                    LOGGER.info("NOTIFY received Statistic");
+                    LOGGER.info("NOTIFY received Statistic from " + request.getDroneTarget());
                     droneProcess.getMasterProcess().notify();
                 }
             }
 
+            droneProcess.getMasterProcess().incrementStatistic();
             responseObserver.onNext(InsertMessage.InfoAndStatsResponse.newBuilder().build());
             responseObserver.onCompleted();
             return;
@@ -292,6 +293,8 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
 
             message = request;
+            droneProcess.setMasterNode(droneProcess.getDrone(message.getId()));
+
             Drone drone = droneProcess.getDrone();
             InsertMessage.PositionRequest position = InsertMessage.PositionRequest
                     .newBuilder()

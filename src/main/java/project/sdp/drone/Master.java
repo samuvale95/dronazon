@@ -18,6 +18,8 @@ public class Master extends Thread{
     private volatile boolean isQuitting;
     private DeliveryManager deliveryManager;
     private final static Logger LOGGER = Logger.getLogger(DroneProcess.class.getName());
+    private int countDelivery = 0;
+    private int countStatistic = 0;
 
 
     public Master(DroneProcess droneProcess) {
@@ -25,6 +27,14 @@ public class Master extends Thread{
         this.deliveryQueue = new Buffer<>();
         this.infoAndStatsQueue = new Buffer<>();
         this.isQuitting = false;
+    }
+
+    public void incrementDelivery(){
+        countDelivery++;
+    }
+
+    public void incrementStatistic(){
+        countStatistic++;
     }
 
     public boolean isQuitting(){
@@ -56,6 +66,9 @@ public class Master extends Thread{
             }
         }
         LOGGER.info("CLOSE MASTER");
+        LOGGER.info("Delivery Sent" + countDelivery);
+        LOGGER.info("Statistic Recived" + countStatistic);
+
     }
 
     public void disconnectMQTT() throws MqttException {

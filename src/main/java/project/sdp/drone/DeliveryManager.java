@@ -149,6 +149,7 @@ public class DeliveryManager extends Thread{
                 @Override
                 public void onCompleted() {
                     LOGGER.info("Delivery Sent to " + droneProcess.getNextDrone());
+                    droneProcess.getMasterProcess().incrementDelivery();
                     channel.shutdown();
                 }
             });
