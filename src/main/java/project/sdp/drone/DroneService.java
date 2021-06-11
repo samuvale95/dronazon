@@ -49,7 +49,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 @Override
                 public void onError(Throwable t) {
                     System.err.println("Send position");
-                    droneProcess.onFailNode(t);
+                    droneProcess.onFailNode(t, channel);
                     sendPositionToNextDrone(request);
                 }
 
@@ -76,8 +76,8 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             responseObserver.onCompleted();
             return;
         }
-
-        LOGGER.info("SET POSITION");
+        
+        LOGGER.info("SET POSITION: " + drone);
         LOGGER.info(droneProcess.getDronesList().toString());
         droneProcess.addDronePosition(drone, position);
         LOGGER.info(droneProcess.getDronesList().toString());
@@ -98,7 +98,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 @Override
                 public void onError(Throwable t) {
                     System.err.println("Send delivery");
-                    droneProcess.onFailNode(t);
+                    droneProcess.onFailNode(t, channel);
                     sendDeliveryToNextDrone(request);
                 }
 
@@ -148,7 +148,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 @Override
                 public void onError(Throwable t) {
                     System.err.println("Send info");
-                    droneProcess.onFailNode(t);
+                    droneProcess.onFailNode(t, channel);
                     sendInfoAfterDeliveryToNextDrone(request);
                 }
 
@@ -286,16 +286,12 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             System.err.println("ELECTED RECEIVED ON DRONE " + droneProcess.getDrone().getId());
             if(request.getId() == droneProcess.getDrone().getId()){
                 System.err.println("SET NEW MASTER on Master");
-                droneProcess.setMaster(true);
-                droneProcess.setMasterNode(new Drone(droneProcess.getDrone().getId(), droneProcess.getDrone().getIp(), droneProcess.getDrone().getPort()));
-                droneProcess.getMasterProcess().start();
+                droneProcess.becomeMaster();
                 return;
             }
 
 
             message = request;
-            droneProcess.setMasterNode(droneProcess.getDrone(message.getId()));
-
             Drone drone = droneProcess.getDrone();
             InsertMessage.PositionRequest position = InsertMessage.PositionRequest
                     .newBuilder()

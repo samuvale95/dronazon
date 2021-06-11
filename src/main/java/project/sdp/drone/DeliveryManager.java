@@ -143,7 +143,7 @@ public class DeliveryManager extends Thread{
 
                 @Override
                 public void onError(Throwable t) {
-                    droneProcess.onFailNode(t);
+                    droneProcess.onFailNode(t, channel);
                 }
 
                 @Override

@@ -36,7 +36,7 @@ public class DroneProcess {
     private Point position;
     private final Object positionSync = new Object();
     private final ListDrone dronesList;
-    private boolean master;
+    private volatile boolean master;
     private Drone masterDrone;
     private Drone nextDrone;
     private final Object nextDroneSync = new Object();
@@ -141,8 +141,10 @@ public class DroneProcess {
                 d.setPosition(new Point(position.getX(), position.getY()));
                 dronesList.add(d);
                 Collections.sort(dronesList.getDrones());
-                synchronized (masterProcess.getDeliveryHandler()){
-                    masterProcess.getDeliveryHandler().notify();
+                if(master) {
+                    synchronized (masterProcess.getDeliveryHandler()) {
+                        masterProcess.getDeliveryHandler().notify();
+                    }
                 }
             }
         }
@@ -210,7 +212,6 @@ public class DroneProcess {
         ManagedChannel channel1 = getChannel(nextDrone);
         DroneServiceStub stub = DroneServiceGrpc.newStub(channel1);
 
-        Drone masterDrone = getMasterDrone();
         InsertMessage.Position positionMessage = InsertMessage.Position.newBuilder().setX((int) position.getX()).setY((int) position.getY()).build();
         stub.sendPosition(InsertMessage.PositionRequest
                 .newBuilder()
@@ -225,7 +226,7 @@ public class DroneProcess {
 
             @Override
             public void onError(Throwable t) {
-                onFailNode(t);
+                onFailNode(t, channel);
             }
 
             @Override
@@ -299,7 +300,7 @@ public class DroneProcess {
 
             @Override
             public void onError(Throwable t) {
-                onFailNode(t);
+                onFailNode(t, channel);
             }
 
             @Override
@@ -337,7 +338,13 @@ public class DroneProcess {
 
     public void setMasterNode(Drone drone) { this.masterDrone = drone; }
 
-    public void onFailNode(Throwable t) {
+    public void onFailNode(Throwable t, ManagedChannel channel) {
+        try {
+            channel.shutdown().awaitTermination(1, TimeUnit.MINUTES);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         try {
             Drone failNode;
             LOGGER.info("ERROR, next done failed: " + getNextDrone());
@@ -383,7 +390,7 @@ public class DroneProcess {
 
             @Override
             public void onError(Throwable t) {
-                onFailNode(t);
+                onFailNode(t, channel);
             }
 
             @Override
@@ -402,6 +409,12 @@ public class DroneProcess {
 
     public boolean isMaster() {
         return master;
+    }
+
+    public synchronized void becomeMaster() {
+        setMaster(true);
+        setMasterNode(getDrone());
+        getMasterProcess().start();
     }
 
     private void close() throws MqttException, InterruptedException {
@@ -478,7 +491,7 @@ public class DroneProcess {
                 @Override
                 public void onError(Throwable t) {
                     LOGGER.info("Fail on PING " + nextDrone);
-                    onFailNode(t);
+                    onFailNode(t, channel);
                 }
 
                 @Override
