@@ -56,6 +56,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 @Override
                 public void onCompleted() {
                     channel.shutdown();
+                    droneProcess.setBusy(true);
                 }
             });
             try {
@@ -68,12 +69,14 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
     @Override
     public void sendPosition(InsertMessage.PositionRequest request, StreamObserver<InsertMessage.PositionResponse> responseObserver) {
+        droneProcess.setBusy(true);
         InsertMessage.Drone drone = request.getDrone();
         InsertMessage.Position position = request.getPosition();
 
         if(drone.getId() == droneProcess.getDrone().getId()){
             responseObserver.onNext(InsertMessage.PositionResponse.newBuilder().build());
             responseObserver.onCompleted();
+            droneProcess.setBusy(false);
             return;
         }
 
@@ -105,6 +108,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 @Override
                 public void onCompleted() {
                     channel.shutdown();
+                    droneProcess.setBusy(false);
                 }
             });
             try {
@@ -117,6 +121,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
     @Override
     public void sendDelivery(InsertMessage.DeliveryRequest request, StreamObserver<InsertMessage.DeliveryResponse> responseObserver) {
+        droneProcess.setBusy(true);
         if(request.getDelivery().getDroneTarget().getId() == droneProcess.getDrone().getId()){
             responseObserver.onNext(InsertMessage.DeliveryResponse.newBuilder().build());
             responseObserver.onCompleted();
@@ -129,6 +134,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             } catch (InterruptedException | MqttException e) {
                 e.printStackTrace();
             }
+            droneProcess.setBusy(false);
             return;
         }
 
@@ -156,6 +162,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 public void onCompleted() {
                     System.out.println("STATS sent to next drone");
                     channel.shutdown();
+                    droneProcess.setBusy(false);
                 }
             });
             try {
@@ -169,6 +176,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
     @Override
     public void sendInfoAfterDelivery(InsertMessage.InfoAndStatsRequest request, StreamObserver<InsertMessage.InfoAndStatsResponse> responseObserver) {
+        droneProcess.setBusy(true);
         System.out.println("Message STATS arrived  from previous drone " + request);
         if(droneProcess.getDrone().getId() == request.getDroneTarget()){
             System.out.println("PRINT MESSAGE");
@@ -221,6 +229,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             droneProcess.getMasterProcess().incrementStatistic();
             responseObserver.onNext(InsertMessage.InfoAndStatsResponse.newBuilder().build());
             responseObserver.onCompleted();
+            droneProcess.setBusy(false);
             return;
         }
 
@@ -246,6 +255,8 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 public void onCompleted() {
                     System.err.println("COMPLETE SEND ELECTION");
                     channel.shutdown();
+                    if(message.getType().equals("ELECTED"))
+                        droneProcess.setBusy(false);
                 }
             });
             try {
@@ -258,6 +269,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
     @Override
     public void election(InsertMessage.ElectionRequest request, StreamObserver<InsertMessage.ElectionResponse> responseObserver) {
+        droneProcess.setBusy(true);
         InsertMessage.ElectionRequest message;
 
         if(request.getType().equals("ELECTION")) {
@@ -288,6 +300,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             if(request.getId() == droneProcess.getDrone().getId()){
                 System.err.println("SET NEW MASTER on Master");
                 droneProcess.becomeMaster();
+                droneProcess.setBusy(false);
                 return;
             }
 

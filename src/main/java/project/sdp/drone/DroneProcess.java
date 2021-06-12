@@ -47,7 +47,7 @@ public class DroneProcess {
     private final ArrayList<Double> pm10means;
     private final Object propertySync = new Object();
     private final static Logger LOGGER = Logger.getLogger(DroneProcess.class.getName());
-    private boolean inDelivery;
+    private boolean busy;
     private boolean closing;
 
 
@@ -62,7 +62,7 @@ public class DroneProcess {
         this.dronesList = new ListDrone();
         this.broker = broker;
         this.masterProcess = new Master(this);
-        this.inDelivery = false;
+        this.busy = false;
         this.closing = false;
     }
 
@@ -217,6 +217,9 @@ public class DroneProcess {
         DroneServiceStub stub = DroneServiceGrpc.newStub(channel1);
 
         InsertMessage.Position positionMessage = InsertMessage.Position.newBuilder().setX((int) position.getX()).setY((int) position.getY()).build();
+        synchronized (propertySync){
+            this.busy = true;
+        }
         stub.sendPosition(InsertMessage.PositionRequest
                 .newBuilder()
                 .setDrone(callerDrone)
@@ -236,6 +239,9 @@ public class DroneProcess {
             @Override
             public void onCompleted() {
                 channel1.shutdown();
+                synchronized (propertySync){
+                    busy = false;
+                }
             }
         });
         channel1.awaitTermination(1, TimeUnit.MINUTES);
@@ -260,7 +266,7 @@ public class DroneProcess {
     }
 
     public void makeDelivery(Delivery delivery) throws InterruptedException, MqttException {
-        inDelivery = true;
+        busy = true;
         LOGGER.info("makeDelivery()");
         LOGGER.info("****+ Making a delivery *******");
         try {
@@ -298,6 +304,9 @@ public class DroneProcess {
         LOGGER.info("Sending stats to Master");
         final ManagedChannel channel = getChannel(nextDrone);
         DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
+        synchronized (propertySync){
+            this.busy = true;
+        }
         stub.sendInfoAfterDelivery(infoAndStatsMessage, new StreamObserver<InsertMessage.InfoAndStatsResponse>() {
             @Override
             public void onNext(InsertMessage.InfoAndStatsResponse value) {
@@ -317,7 +326,9 @@ public class DroneProcess {
                         DroneProcess.this.notify();
                     }
                 }
-                inDelivery=false;
+                synchronized (propertySync) {
+                    busy = false;
+                }
             }
         });
         channel.awaitTermination(1, TimeUnit.MINUTES);
@@ -394,6 +405,9 @@ public class DroneProcess {
         }
         final ManagedChannel channel = getChannel(nextDrone);
         DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
+        synchronized (propertySync){
+            this.busy = true;
+        }
         stub.election(message, new StreamObserver<InsertMessage.ElectionResponse>() {
             @Override
             public void onNext(InsertMessage.ElectionResponse value) {
@@ -408,6 +422,9 @@ public class DroneProcess {
             @Override
             public void onCompleted() {
                 channel.shutdown();
+                synchronized (propertySync){
+                    busy = false;
+                }
             }
         });
 
@@ -419,14 +436,16 @@ public class DroneProcess {
         new PM10Simulator(sensorBuffer).start();
     }
 
-    public boolean isMaster() {
-        return master;
-    }
-
     public synchronized void becomeMaster() {
         setMaster(true);
         setMasterNode(getDrone());
         getMasterProcess().start();
+    }
+
+    public void setBusy(boolean b) {
+        synchronized (propertySync) {
+            this.busy = b;
+        }
     }
 
     private void close() throws MqttException, InterruptedException {
@@ -434,10 +453,10 @@ public class DroneProcess {
 
         if(master) masterProcess.shutdown();
 
-        if(inDelivery) {
+        if(busy) {
             synchronized (this) {
                 LOGGER.info("WAITING FINISH DELIVERY");
-                if (inDelivery)
+                if (busy)
                     wait();
             }
         }
@@ -492,7 +511,7 @@ public class DroneProcess {
                 System.out.println("Write quit to exit");
             }
             try {
-                if(inDelivery)
+                if(busy)
                     close();
             } catch (MqttException | InterruptedException e) {
                 e.printStackTrace();
