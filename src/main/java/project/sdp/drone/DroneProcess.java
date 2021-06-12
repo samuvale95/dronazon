@@ -47,19 +47,23 @@ public class DroneProcess {
     private final ArrayList<Double> pm10means;
     private final Object propertySync = new Object();
     private final static Logger LOGGER = Logger.getLogger(DroneProcess.class.getName());
+    private boolean inDelivery;
+    private boolean closing;
 
 
     public DroneProcess(int id, int port, String URI_AdmServer, String broker) {
         this.id = id;
         this.port = port;
         this.URI_AdmServer = URI_AdmServer;
-        this.battery = 100;
+        this.battery = 30;
         this.master = false;
         this.nextDrone = new Drone(id, "localhost", port);
         this.pm10means = new ArrayList<>();
         this.dronesList = new ListDrone();
         this.broker = broker;
         this.masterProcess = new Master(this);
+        this.inDelivery = false;
+        this.closing = false;
     }
 
     public void setNextDrone(Drone nextDrone) {
@@ -256,6 +260,7 @@ public class DroneProcess {
     }
 
     public void makeDelivery(Delivery delivery) throws InterruptedException, MqttException {
+        inDelivery = true;
         LOGGER.info("makeDelivery()");
         LOGGER.info("****+ Making a delivery *******");
         try {
@@ -306,6 +311,13 @@ public class DroneProcess {
             @Override
             public void onCompleted() {
                 channel.shutdown();
+                LOGGER.info("NOTIFY Finish delivery");
+                if(closing){
+                    synchronized (DroneProcess.this) {
+                        DroneProcess.this.notify();
+                    }
+                }
+                inDelivery=false;
             }
         });
         channel.awaitTermination(1, TimeUnit.MINUTES);
@@ -418,7 +430,17 @@ public class DroneProcess {
     }
 
     private void close() throws MqttException, InterruptedException {
+        this.closing = true;
+
         if(master) masterProcess.shutdown();
+
+        if(inDelivery) {
+            synchronized (this) {
+                LOGGER.info("WAITING FINISH DELIVERY");
+                if (inDelivery)
+                    wait();
+            }
+        }
 
         Client client = Client.create();
         WebResource webResource = client.resource(URI_AdmServer + "/dronazon/drone/remove/"+id);
@@ -470,7 +492,8 @@ public class DroneProcess {
                 System.out.println("Write quit to exit");
             }
             try {
-                DroneProcess.this.close();
+                if(inDelivery)
+                    close();
             } catch (MqttException | InterruptedException e) {
                 e.printStackTrace();
             }
