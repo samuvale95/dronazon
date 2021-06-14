@@ -26,7 +26,6 @@ public class Master extends Thread{
         this.droneProcess = droneProcess;
         this.deliveryQueue = new Buffer<>();
         this.infoAndStatsQueue = new Buffer<>();
-        this.isQuitting = false;
     }
 
     public void incrementDelivery(){
@@ -37,16 +36,11 @@ public class Master extends Thread{
         countStatistic++;
     }
 
-    public boolean isQuitting(){
-        return this.isQuitting;
-    }
-
     public Buffer<project.sdp.dronazon.Delivery> getDeliveryQueue() { return this.deliveryQueue; }
 
     public Buffer<InfoAndStats> getInfoAndStatsQueue(){ return this.infoAndStatsQueue; }
 
     public synchronized void shutdown() throws MqttException, InterruptedException {
-        this.isQuitting = true;
         disconnectMQTT();
         client.close();
 

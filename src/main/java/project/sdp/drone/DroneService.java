@@ -56,7 +56,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 @Override
                 public void onCompleted() {
                     channel.shutdown();
-                    droneProcess.setBusy(true);
+                    droneProcess.setBusy(false);
                 }
             });
             try {
@@ -214,16 +214,12 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             }
 
             synchronized (droneProcess.getMasterProcess().getDeliveryHandler()){
-                if(droneProcess.getMasterProcess().getDeliveryHandler().isWaitingForNewDrone()){
-                    droneProcess.getMasterProcess().getDeliveryHandler().notify();
-                }
+                droneProcess.getMasterProcess().getDeliveryHandler().notify();
             }
 
             synchronized (droneProcess.getMasterProcess()) {
-                if (droneProcess.getMasterProcess().isQuitting()) {
-                    LOGGER.info("NOTIFY received Statistic from " + request.getDroneTarget());
-                    droneProcess.getMasterProcess().notify();
-                }
+                LOGGER.info("NOTIFY received Statistic from " + request.getDroneTarget());
+                droneProcess.getMasterProcess().notify();
             }
 
             droneProcess.getMasterProcess().incrementStatistic();

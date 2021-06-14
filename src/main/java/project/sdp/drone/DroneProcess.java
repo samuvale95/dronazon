@@ -32,7 +32,7 @@ public class DroneProcess {
     private final int id;
     private final int port;
     private final String URI_AdmServer;
-    private volatile int battery;
+    private int battery;
     private Point position;
     private final Object positionSync = new Object();
     private final ListDrone dronesList;
@@ -45,17 +45,17 @@ public class DroneProcess {
     private int deliveryCount = 0;
     private double distance = 0;
     private final ArrayList<Double> pm10means;
-    private final Object propertySync = new Object();
+    private final Object pm10Sync = new Object();
+    private final Object busySync = new Object();
     private final static Logger LOGGER = Logger.getLogger(DroneProcess.class.getName());
     private boolean busy;
-    private boolean closing;
 
 
     public DroneProcess(int id, int port, String URI_AdmServer, String broker) {
         this.id = id;
         this.port = port;
         this.URI_AdmServer = URI_AdmServer;
-        this.battery = 30;
+        this.battery = 100;
         this.master = false;
         this.nextDrone = new Drone(id, "localhost", port);
         this.pm10means = new ArrayList<>();
@@ -63,7 +63,6 @@ public class DroneProcess {
         this.broker = broker;
         this.masterProcess = new Master(this);
         this.busy = false;
-        this.closing = false;
     }
 
     public void setNextDrone(Drone nextDrone) {
@@ -197,7 +196,6 @@ public class DroneProcess {
 
 
         Drone drone = getFuturePreviousNode();
-        LOGGER.info("insertIntoRing()");
         LOGGER.info("Try to communicate with: " + drone);
         ManagedChannel channel = getChannel(drone);
         DroneServiceBlockingStub blockingStub = DroneServiceGrpc.newBlockingStub(channel);
@@ -207,44 +205,41 @@ public class DroneProcess {
 
         InsertMessage.InsertRingResponse insertRingResponse = blockingStub.insertIntoRing(insertMessage);
         channel.shutdown().awaitTermination(1, TimeUnit.MINUTES);
+        LOGGER.info("Inserted into RING");
 
         InsertMessage.Drone droneNext = insertRingResponse.getNextDrone();
         InsertMessage.Drone droneMaster = insertRingResponse.getMasterDrone();
         nextDrone = new Drone(droneNext.getId(),droneNext.getIp(), droneNext.getPort());
         masterDrone = new Drone(droneMaster.getId(), droneMaster.getIp(), droneMaster.getPort());
 
+        setBusy(true);
         ManagedChannel channel1 = getChannel(nextDrone);
         DroneServiceStub stub = DroneServiceGrpc.newStub(channel1);
 
         InsertMessage.Position positionMessage = InsertMessage.Position.newBuilder().setX((int) position.getX()).setY((int) position.getY()).build();
-        synchronized (propertySync){
-            this.busy = true;
-        }
         stub.sendPosition(InsertMessage.PositionRequest
-                .newBuilder()
-                .setDrone(callerDrone)
-                .setPosition(positionMessage)
-                .build(),
-                new StreamObserver<InsertMessage.PositionResponse>() {
-            @Override
-            public void onNext(InsertMessage.PositionResponse value) {
+            .newBuilder()
+            .setDrone(callerDrone)
+            .setPosition(positionMessage)
+            .build(),
+            new StreamObserver<InsertMessage.PositionResponse>() {
+                @Override
+                public void onNext(InsertMessage.PositionResponse value) {
 
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                onFailNode(t, channel);
-            }
-
-            @Override
-            public void onCompleted() {
-                channel1.shutdown();
-                synchronized (propertySync){
-                    busy = false;
                 }
-            }
-        });
-        channel1.awaitTermination(1, TimeUnit.MINUTES);
+
+                @Override
+                public void onError(Throwable t) {
+                    onFailNode(t, channel1);
+                }
+
+                @Override
+                public void onCompleted() {
+                    channel1.shutdown();
+                    setBusy(false);
+                    LOGGER.info("Sent position to MASTER");
+                }
+            });
     }
 
     private Drone getFuturePreviousNode() {
@@ -271,42 +266,41 @@ public class DroneProcess {
         LOGGER.info("****+ Making a delivery *******");
         try {
             Thread.sleep(5000);
-            synchronized (propertySync) {
-                deliveryCount++;
-                battery -= 10;
-                position = delivery.getDeliveryPoint();
-                distance += position.distance(delivery.getTakePoint()) + delivery.getTakePoint().distance(delivery.getDeliveryPoint());
-            }
+            deliveryCount++;
+            battery -= 10;
+            position = delivery.getDeliveryPoint();
+            distance += position.distance(delivery.getTakePoint()) + delivery.getTakePoint().distance(delivery.getDeliveryPoint());
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
         LOGGER.info("******** Delivery End *********");
 
-        InsertMessage.InfoAndStatsRequest infoAndStatsMessage;
-        synchronized (this) {
-            infoAndStatsMessage = InsertMessage.InfoAndStatsRequest
-                            .newBuilder()
-                            .setCallerDrone(id)
-                            .setBattery(battery)
-                            .addAllAirPollution(pm10means)
-                            .setDistanceRoutes(distance)
-                            .setNewPosition(InsertMessage.Position
-                                    .newBuilder()
-                                    .setX((int) position.getX())
-                                    .setY((int) position.getY())
-                                    .build())
-                            .setDeliveryTimeStamp(Timestamp.from(Instant.now()).getTime())
-                            .setDroneTarget(masterDrone.getId())
-                            .setDeliveryNumber(deliveryCount)
-                            .build();
+        ArrayList<Double> pm10;
+        synchronized (pm10Sync){
+            pm10 = pm10means;
         }
+
+        InsertMessage.InfoAndStatsRequest infoAndStatsMessage = InsertMessage.InfoAndStatsRequest
+                        .newBuilder()
+                        .setCallerDrone(id)
+                        .setBattery(battery)
+                        .addAllAirPollution(pm10)
+                        .setDistanceRoutes(distance)
+                        .setNewPosition(InsertMessage.Position
+                                .newBuilder()
+                                .setX((int) position.getX())
+                                .setY((int) position.getY())
+                                .build())
+                        .setDeliveryTimeStamp(Timestamp.from(Instant.now()).getTime())
+                        .setDroneTarget(masterDrone.getId())
+                        .setDeliveryNumber(deliveryCount)
+                        .build();
 
         LOGGER.info("Sending stats to Master");
         final ManagedChannel channel = getChannel(nextDrone);
         DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
-        synchronized (propertySync){
-            this.busy = true;
-        }
+
+        setBusy(true);
         stub.sendInfoAfterDelivery(infoAndStatsMessage, new StreamObserver<InsertMessage.InfoAndStatsResponse>() {
             @Override
             public void onNext(InsertMessage.InfoAndStatsResponse value) {
@@ -321,17 +315,9 @@ public class DroneProcess {
             public void onCompleted() {
                 channel.shutdown();
                 LOGGER.info("NOTIFY Finish delivery");
-                if(closing){
-                    synchronized (DroneProcess.this) {
-                        DroneProcess.this.notify();
-                    }
-                }
-                synchronized (propertySync) {
-                    busy = false;
-                }
+                setBusy(false);
             }
         });
-        channel.awaitTermination(1, TimeUnit.MINUTES);
 
         if(battery < 15)
             this.close();
@@ -345,6 +331,7 @@ public class DroneProcess {
                     setMasterNode(getDrone());
                     setMaster(true);
                     masterProcess.start();
+                    LOGGER.info("I'm MASTER DRONE");
                 }
                 setNextDrone(getDrone());
                 return;
@@ -394,20 +381,15 @@ public class DroneProcess {
     }
 
     private void startNewElection() throws InterruptedException, MqttException {
-        InsertMessage.ElectionRequest message;
-        synchronized (propertySync) {
-            message = InsertMessage.ElectionRequest
-                    .newBuilder()
-                    .setId(id)
-                    .setBattery(battery)
-                    .setType("ELECTION")
-                    .build();
-        }
+        InsertMessage.ElectionRequest message = InsertMessage.ElectionRequest
+                .newBuilder()
+                .setId(id)
+                .setBattery(battery)
+                .setType("ELECTION")
+                .build();
         final ManagedChannel channel = getChannel(nextDrone);
         DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
-        synchronized (propertySync){
-            this.busy = true;
-        }
+        setBusy(true);
         stub.election(message, new StreamObserver<InsertMessage.ElectionResponse>() {
             @Override
             public void onNext(InsertMessage.ElectionResponse value) {
@@ -422,13 +404,9 @@ public class DroneProcess {
             @Override
             public void onCompleted() {
                 channel.shutdown();
-                synchronized (propertySync){
-                    busy = false;
-                }
+                setBusy(false);
             }
         });
-
-        channel.awaitTermination(1, TimeUnit.MINUTES);
     }
 
     private void startPM10Sensor() {
@@ -443,21 +421,22 @@ public class DroneProcess {
     }
 
     public void setBusy(boolean b) {
-        synchronized (propertySync) {
+        synchronized (busySync) {
             this.busy = b;
+        }
+        synchronized (this) {
+            notify();
         }
     }
 
     private void close() throws MqttException, InterruptedException {
-        this.closing = true;
 
         if(master) masterProcess.shutdown();
 
-        if(busy) {
-            synchronized (this) {
+        synchronized (this) {
+            while (busy) {
                 LOGGER.info("WAITING FINISH DELIVERY");
-                if (busy)
-                    wait();
+                wait();
             }
         }
 
@@ -511,8 +490,7 @@ public class DroneProcess {
                 System.out.println("Write quit to exit");
             }
             try {
-                if(busy)
-                    close();
+                close();
             } catch (MqttException | InterruptedException e) {
                 e.printStackTrace();
             }
@@ -539,11 +517,6 @@ public class DroneProcess {
                 @Override
                 public void onCompleted() { channel.shutdown(); }
             });
-            try {
-                channel.awaitTermination(1, TimeUnit.MINUTES);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
         }, 0, 7*1000, TimeUnit.MILLISECONDS);
     }
 

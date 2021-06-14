@@ -16,17 +16,11 @@ import java.util.logging.Logger;
 public class DeliveryManager extends Thread{
 
     private final DroneProcess droneProcess;
-    private volatile boolean isWaitingForNewDrone;
     private final static Logger LOGGER = Logger.getLogger(DeliveryManager.class.getName());
 
 
     public DeliveryManager(DroneProcess droneProcess){
         this.droneProcess = droneProcess;
-        this.isWaitingForNewDrone = false;
-    }
-
-    public boolean isWaitingForNewDrone(){
-        return isWaitingForNewDrone;
     }
 
     private Drone getDeliveryDrone(Delivery delivery) throws MqttException {
@@ -93,7 +87,6 @@ public class DeliveryManager extends Thread{
                 droneProcess.getMasterProcess().getDeliveryQueue().add(delivery);
                 synchronized (droneProcess.getMasterProcess().getDeliveryHandler()){
                     try {
-                        isWaitingForNewDrone = true;
                         LOGGER.info("Waiting on new delivery drone!");
                         droneProcess.getMasterProcess().getDeliveryHandler().wait();
                         continue;
