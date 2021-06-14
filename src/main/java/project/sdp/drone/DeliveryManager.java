@@ -146,11 +146,6 @@ public class DeliveryManager extends Thread{
                     channel.shutdown();
                 }
             });
-            try {
-                channel.awaitTermination(1, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
         }
     }
 }

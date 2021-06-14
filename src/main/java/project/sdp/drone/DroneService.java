@@ -59,11 +59,6 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                     droneProcess.setBusy(false);
                 }
             });
-            try {
-                channel.awaitTermination(1, TimeUnit.MINUTES);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
         });
     }
 
@@ -111,11 +106,6 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                     droneProcess.setBusy(false);
                 }
             });
-            try {
-                channel.awaitTermination(1, TimeUnit.MINUTES);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
         });
     }
 
@@ -165,11 +155,6 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                     droneProcess.setBusy(false);
                 }
             });
-            try {
-                channel.awaitTermination(1, TimeUnit.MINUTES);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
         });
     }
 
@@ -255,11 +240,6 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                         droneProcess.setBusy(false);
                 }
             });
-            try {
-                channel.awaitTermination(1, TimeUnit.MINUTES);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
         });
     }
 

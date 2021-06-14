@@ -204,7 +204,7 @@ public class DroneProcess {
         InsertMessage.InsertRingRequest insertMessage = InsertMessage.InsertRingRequest.newBuilder().setCallerDrone(callerDrone).build();
 
         InsertMessage.InsertRingResponse insertRingResponse = blockingStub.insertIntoRing(insertMessage);
-        channel.shutdown().awaitTermination(1, TimeUnit.MINUTES);
+        channel.shutdown();
         LOGGER.info("Inserted into RING");
 
         InsertMessage.Drone droneNext = insertRingResponse.getNextDrone();
@@ -297,26 +297,28 @@ public class DroneProcess {
                         .build();
 
         LOGGER.info("Sending stats to Master");
-        final ManagedChannel channel = getChannel(nextDrone);
-        DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
 
-        setBusy(true);
-        stub.sendInfoAfterDelivery(infoAndStatsMessage, new StreamObserver<InsertMessage.InfoAndStatsResponse>() {
-            @Override
-            public void onNext(InsertMessage.InfoAndStatsResponse value) {
-            }
+        Context.current().fork().run(()->{
+            setBusy(true);
+            final ManagedChannel channel = getChannel(nextDrone);
+            DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
+            stub.sendInfoAfterDelivery(infoAndStatsMessage, new StreamObserver<InsertMessage.InfoAndStatsResponse>() {
+                @Override
+                public void onNext(InsertMessage.InfoAndStatsResponse value) {
+                }
 
-            @Override
-            public void onError(Throwable t) {
-                onFailNode(t, channel);
-            }
+                @Override
+                public void onError(Throwable t) {
+                    onFailNode(t, channel);
+                }
 
-            @Override
-            public void onCompleted() {
-                channel.shutdown();
-                LOGGER.info("NOTIFY Finish delivery");
-                setBusy(false);
-            }
+                @Override
+                public void onCompleted() {
+                    channel.shutdown();
+                    LOGGER.info("NOTIFY Finish delivery");
+                    setBusy(false);
+                }
+            });
         });
 
         if(battery < 15)
@@ -349,11 +351,7 @@ public class DroneProcess {
     public void setMasterNode(Drone drone) { this.masterDrone = drone; }
 
     public void onFailNode(Throwable t, ManagedChannel channel) {
-        try {
-            channel.shutdown().awaitTermination(1, TimeUnit.MINUTES);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        channel.shutdown();
 
         try {
             Drone failNode;
@@ -368,6 +366,9 @@ public class DroneProcess {
             if (t instanceof StatusRuntimeException && ((StatusRuntimeException) t).getStatus().getCode() == Status.UNAVAILABLE.getCode()) {
                 LOGGER.info("Setting new next node");
                 recoverFromNodeFailure(failNode);
+            }else{
+                LOGGER.info("ERROR NOT UNAVAILABLE");
+                t.printStackTrace();
             }
 
             if (failNode.getId() == getMasterDrone().getId()) {
@@ -375,6 +376,7 @@ public class DroneProcess {
                 startNewElection();
             }
 
+            setBusy(false);
         } catch (InterruptedException | MqttException e) {
             e.printStackTrace();
         }
