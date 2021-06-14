@@ -62,28 +62,28 @@ public class ClientAmministratore {
                     statsList.forEach(System.out::println);
                     break;
                 case "3":
-                    System.out.println("Insert date from (dd-mm-yyyy): ");
+                    System.out.println("Insert date from (yyyy-mm-dd): ");
                     from = scanner.nextLine();
-                    System.out.println("Insert date to (dd-mm-yyyy): ");
+                    System.out.println("Insert date to (yyyy-mm-dd): ");
                     to = scanner.nextLine();
 
                     System.out.println("Print delivery Statistics: ");
-                    String statsDelivery = RESTcall("/dronazon/city/statistics/delivery/from/"+from+"/to/"+to).getEntity(String.class);
+                    String statsDelivery = RESTcall("/dronazon/drone/all/statistics/delivery/from/"+from+"/to/"+to).getEntity(String.class);
                     typeRef = new org.codehaus.jackson.type.TypeReference<ArrayList<Statistics>>() {};
                     ArrayList<Statistics> DeliveryStatsList = objMap.readValue(statsDelivery, typeRef);
-                    DeliveryStatsList.forEach(System.out::println);
+                    DeliveryStatsList.stream().map(stat->"avgDistance="+stat.getAverageDelivery()+", "+stat.getTimestamp()).forEach(System.out::println);
                     break;
                 case "4":
-                    System.out.println("Insert date from (dd-mm-yyyy): ");
+                    System.out.println("Insert date from (yyyy-mm-dd): ");
                     from = scanner.nextLine();
-                    System.out.println("Insert date to (dd-mm-yyyy): ");
+                    System.out.println("Insert date to (yyyy-mm-dd): ");
                     to = scanner.nextLine();
 
                     System.out.println("Print distance Statistics: ");
-                    String statsDistance = RESTcall("/dronazon/city/statistics/distance/from/"+from+"/to/"+to).getEntity(String.class);
+                    String statsDistance = RESTcall("/dronazon/drone/all/statistics/distance/from/"+from+"/to/"+to).getEntity(String.class);
                     typeRef = new org.codehaus.jackson.type.TypeReference<ArrayList<Statistics>>() {};
                     ArrayList<Statistics> DistanceStatsList = objMap.readValue(statsDistance, typeRef);
-                    DistanceStatsList.forEach(System.out::println);
+                    DistanceStatsList.stream().map(stat->"avgDistance="+stat.getAverageDistance()+", "+stat.getTimestamp()).forEach(System.out::println);
                     break;
             }
 

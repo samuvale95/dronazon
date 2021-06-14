@@ -245,8 +245,6 @@ public class DroneProcess {
     private Drone getFuturePreviousNode() {
         ArrayList<Drone> list = getDronesListCopy();
         int index = list.indexOf(getDrone());
-        System.err.println("list: " + list);
-        System.err.println("index:" + index);
         synchronized (nextDroneSync) {
             return list.get((index - 1) % list.size());
         }
@@ -262,7 +260,6 @@ public class DroneProcess {
 
     public void makeDelivery(Delivery delivery) throws InterruptedException, MqttException {
         busy = true;
-        LOGGER.info("makeDelivery()");
         LOGGER.info("****+ Making a delivery *******");
         try {
             Thread.sleep(5000);
@@ -503,7 +500,6 @@ public class DroneProcess {
                 if (getNextDrone().getId() == getDrone().getId()) return;
             }
 
-            System.err.println(getNextDrone());
             ManagedChannel channel = getChannel(getNextDrone());
             DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
             stub.isAlive(InsertMessage.AliveMessage.newBuilder().build(), new StreamObserver<InsertMessage.AliveMessage>() {
