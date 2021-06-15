@@ -6,10 +6,10 @@ import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
 import org.eclipse.paho.client.mqttv3.MqttException;
+import project.sdp.dronazon.RandomDelivery;
 import project.sdp.server.beans.Drone;
 import java.awt.*;
 import java.util.ArrayList;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
@@ -97,6 +97,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                 public void onError(Throwable t) {
                     System.err.println("Send delivery");
                     droneProcess.onFailNode(t, channel);
+                    LOGGER.info("Recovered Node, sending delivery to next Drone");
                     sendDeliveryToNextDrone(request);
                 }
 
@@ -126,6 +127,20 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             }
             droneProcess.setBusy(false);
             return;
+        }else if(droneProcess.getDrone().getId() == droneProcess.getMasterDrone().getId() && droneProcess.getDrone().getId() != request.getDelivery().getDroneTarget().getId()){
+            LOGGER.info("Reinsert delivery to queue, drone: " + request.getDelivery().getDroneTarget() + "no more inside a Ring");
+            droneProcess.getMasterProcess().getDeliveryQueue().add(new RandomDelivery(request.getDelivery().getId(),
+                    new Point(request.getDelivery().getTakePoint().getX(),
+                            request.getDelivery().getTakePoint().getY()),
+                    new Point(request.getDelivery().getDeliveryPoint().getX(),
+                            request.getDelivery().getDeliveryPoint().getY()))
+            );
+            InsertMessage.Drone drone = request.getDelivery().getDroneTarget();
+            synchronized (droneProcess.getDronesList()) {
+                droneProcess.getDronesList().remove(new Drone(drone.getId(), drone.getIp(), drone.getPort()));
+            }
+            droneProcess.getMasterProcess().decrementDelivery();
+            return;
         }
 
         sendDeliveryToNextDrone(request);
@@ -143,14 +158,14 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
                 @Override
                 public void onError(Throwable t) {
-                    System.err.println("Send info");
+                    LOGGER.info("Error on send Info and Stats");
                     droneProcess.onFailNode(t, channel);
                     sendInfoAfterDeliveryToNextDrone(request);
                 }
 
                 @Override
                 public void onCompleted() {
-                    System.out.println("STATS sent to next drone");
+                    LOGGER.info("STATS sent to next drone");
                     channel.shutdown();
                     droneProcess.setBusy(false);
                 }
@@ -162,11 +177,8 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
     @Override
     public void sendInfoAfterDelivery(InsertMessage.InfoAndStatsRequest request, StreamObserver<InsertMessage.InfoAndStatsResponse> responseObserver) {
         droneProcess.setBusy(true);
-        System.out.println("Message STATS arrived  from previous drone " + request);
+        LOGGER.info("Message STATS arrived  from previous drone " + request.getDroneTarget());
         if(droneProcess.getDrone().getId() == request.getDroneTarget()){
-            System.out.println("PRINT MESSAGE");
-            System.out.println(request);
-
             InfoAndStats infoAndStats = new InfoAndStats(request.getDeliveryTimeStamp(),
                     new Point(request.getNewPosition().getX(),
                             request.getNewPosition().getY()
@@ -188,8 +200,6 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
             synchronized (droneProcess.getDronesList()) {
                 listDrone = new ArrayList<>(droneProcess.getDronesList());
 
-
-                System.out.println(infoAndStats);
                 for (Drone drone: listDrone) {
                     if (drone.getId() == callerDroneId) {
                         drone.setPosition(newPosition);
@@ -221,7 +231,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
     private void sendElectionToNextDrone(InsertMessage.ElectionRequest message) {
         Context.current().fork().run(()-> {
-            System.err.println("Sending election to: " + droneProcess.getNextDrone());
+            LOGGER.info("Sending election to: " + droneProcess.getNextDrone());
             ManagedChannel channel = droneProcess.getChannel(droneProcess.getNextDrone());
 
             DroneServiceGrpc.DroneServiceStub stub = DroneServiceGrpc.newStub(channel);
@@ -234,7 +244,7 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
 
                 @Override
                 public void onCompleted() {
-                    System.err.println("COMPLETE SEND ELECTION");
+                    LOGGER.info("COMPLETE SEND ELECTION");
                     channel.shutdown();
                     if(message.getType().equals("ELECTED"))
                         droneProcess.setBusy(false);
@@ -249,9 +259,9 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
         InsertMessage.ElectionRequest message;
 
         if(request.getType().equals("ELECTION")) {
-            System.err.println("ELECTION IN ACTION");
+            LOGGER.info("ELECTION IN ACTION");
             if (request.getId() == droneProcess.getDrone().getId()) {
-                System.err.println("ELECTED " + droneProcess.getDrone().getId() + " drone" );
+                LOGGER.info("ELECTED " + droneProcess.getDrone().getId() + " drone" );
                 message = InsertMessage.ElectionRequest
                         .newBuilder()
                         .setId(droneProcess.getDrone().getId())
@@ -260,10 +270,10 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                         .build();
             }else if (request.getBattery() > droneProcess.getDrone().getBattery() ||
                     (request.getBattery() == droneProcess.getDrone().getBattery() && request.getId() > droneProcess.getDrone().getId())) {
-                System.err.println("FORWARD");
+                LOGGER.info("FORWARD");
                 message = request;
             }else{
-                System.err.println("FORWARD with new packet");
+                LOGGER.info("FORWARD with new packet");
                 message = InsertMessage.ElectionRequest
                         .newBuilder()
                         .setId(droneProcess.getDrone().getId())
@@ -272,9 +282,9 @@ public class DroneService extends DroneServiceGrpc.DroneServiceImplBase {
                         .build();
             }
         }else{
-            System.err.println("ELECTED RECEIVED ON DRONE " + droneProcess.getDrone().getId());
+            LOGGER.info("ELECTED RECEIVED ON DRONE " + droneProcess.getDrone().getId());
             if(request.getId() == droneProcess.getDrone().getId()){
-                System.err.println("SET NEW MASTER on Master");
+                LOGGER.info("SET NEW MASTER on Master");
                 droneProcess.becomeMaster();
                 droneProcess.setBusy(false);
                 return;

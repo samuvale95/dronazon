@@ -15,7 +15,6 @@ public class Master extends Thread{
     private final Buffer<project.sdp.dronazon.Delivery> deliveryQueue;
     private final Buffer<InfoAndStats> infoAndStatsQueue;
     private MqttClient client;
-    private volatile boolean isQuitting;
     private DeliveryManager deliveryManager;
     private final static Logger LOGGER = Logger.getLogger(DroneProcess.class.getName());
     private int countDelivery = 0;
@@ -30,6 +29,10 @@ public class Master extends Thread{
 
     public void incrementDelivery(){
         countDelivery++;
+    }
+
+    public void decrementDelivery(){
+        countDelivery--;
     }
 
     public void incrementStatistic(){

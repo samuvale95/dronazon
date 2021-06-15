@@ -15,6 +15,12 @@ public class RandomDelivery implements Delivery{
         this.takePoint = getRandomPoint(length, height);
     }
 
+    public RandomDelivery(int id, Point takePoint, Point deliveryPoint){
+        this.id = id;
+        this.deliveryPoint = takePoint;
+        this.takePoint = deliveryPoint;
+    }
+
     private static Point getRandomPoint(int length, int height){
         Random random = new Random();
         return new Point(random.nextInt(length), random.nextInt(height));
